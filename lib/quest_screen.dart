@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:io';
 import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'quest_state.dart';
 
 const Color primaryBlue = Color(0xFF0d93f2);
@@ -196,6 +197,27 @@ class _QuestScreenState extends State<QuestScreen> {
       setState(() => _isVerifying = false);
       
       if (text == '1') {
+        try {
+          final uid = FirebaseAuth.instance.currentUser?.uid;
+          if (uid != null) {
+            await FirebaseFirestore.instance.runTransaction((transaction) async {
+              final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
+              final userSnapshot = await transaction.get(userRef);
+              if (userSnapshot.exists) {
+                final currentExp = userSnapshot.data()?['exp'] ?? 0;
+                final newExp = currentExp + 50;
+                final newLevel = (newExp ~/ 1000) + 1; // 1000 exp = 1 level
+                transaction.update(userRef, {
+                  'exp': newExp,
+                  'level': newLevel,
+                });
+              }
+            });
+          }
+        } catch (e) {
+          debugPrint('Failed to update EXP: $e');
+        }
+
         if (mounted) {
           _showResultDialog(true, 'QUEST CLEARED!', 'AI verified the location is clean. +50 EXP added to your profile!', const Color(0xFF4CAF50));
         }

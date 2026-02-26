@@ -45,5 +45,7 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+    <key>NSContactsUsageDescription</key>
+    <string>Find friends already playing Eco Quest.</string>
 </dict>
 </plist>

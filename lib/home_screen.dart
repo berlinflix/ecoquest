@@ -1,15 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'auth_service.dart';
 import 'quest_screen.dart';
 import 'quest_state.dart';
-
+import 'social_screen.dart';
 const Color primaryMint = Color(0xFF25F4AF);
 const Color backgroundLight = Color(0xFFF5F8F7);
 const Color navyDeep = Color(0xFF0A192F);
 const Color shadowMint = Color(0xFF1BA67A);
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  int _currentIndex = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -18,21 +28,33 @@ class HomeScreen extends StatelessWidget {
       body: SafeArea(
         child: Stack(
           children: [
-            Column(
+            IndexedStack(
+              index: _currentIndex,
               children: [
-                _buildTopHeader(),
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        _buildHeroSection(),
-                        _buildActionSection(context),
-                        _buildHeatmapSection(),
-                        const SizedBox(height: 100), // Padding for bottom nav
-                      ],
+                // 0: Home Feed
+                Column(
+                  children: [
+                    _buildTopHeader(),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: [
+                            _buildHeroSection(),
+                            _buildActionSection(context),
+                            _buildHeatmapSection(),
+                            const SizedBox(height: 100), // Padding for bottom nav
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
+                // 1: Quests (Placeholder, reusing Home for now)
+                const Center(child: Text("Quests Map Coming Soon")),
+                // 2: Map (Placeholder)
+                const Center(child: Text("Global Map Coming Soon")),
+                // 3: Social Leaderboard
+                const SocialScreen(),
               ],
             ),
             _buildBottomNavBar(),
@@ -71,17 +93,161 @@ class HomeScreen extends StatelessWidget {
               letterSpacing: -0.5,
             ),
           ),
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: primaryMint.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.emoji_events, color: navyDeep, size: 20),
-          ),
+          _buildNotificationIcon(),
         ],
       ),
+    );
+  }
+
+  Widget _buildNotificationIcon() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      return Container(
+        width: 40, height: 40,
+        decoration: BoxDecoration(color: primaryMint.withOpacity(0.1), shape: BoxShape.circle),
+        child: const Icon(Icons.park, color: navyDeep, size: 20),
+      );
+    }
+
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+      builder: (context, snapshot) {
+        bool hasPending = false;
+        List<dynamic> pendingRequests = [];
+        
+        if (snapshot.hasData && snapshot.data!.exists) {
+          final data = snapshot.data!.data() as Map<String, dynamic>?;
+          if (data != null) {
+            pendingRequests = data['pendingRequests'] ?? [];
+            hasPending = pendingRequests.isNotEmpty;
+          }
+        }
+
+        return GestureDetector(
+          onTap: () {
+            if (pendingRequests.isNotEmpty) {
+              _showRequestsModal(context, pendingRequests, uid);
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No new notifications!')));
+            }
+          },
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: primaryMint.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.park, color: navyDeep, size: 20),
+              ),
+              if (hasPending)
+                Positioned(
+                  top: -2,
+                  right: -2,
+                  child: Container(
+                    width: 14,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      color: Colors.redAccent,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showRequestsModal(BuildContext context, List<dynamic> pendingUidList, String currentUid) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: backgroundLight,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.all(24),
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Friend Requests', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: navyDeep)),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: pendingUidList.length,
+                  itemBuilder: (context, index) {
+                    final requesterId = pendingUidList[index] as String;
+                    return FutureBuilder<DocumentSnapshot>(
+                      future: FirebaseFirestore.instance.collection('users').doc(requesterId).get(),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) return const Padding(padding: EdgeInsets.all(8), child: CircularProgressIndicator());
+                        final data = snapshot.data!.data() as Map<String, dynamic>?;
+                        if (data == null) return const SizedBox.shrink();
+
+                        final name = '${data['firstName']} ${data['lastName']}';
+                        final username = '@${data['username']}';
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 40, height: 40,
+                                decoration: BoxDecoration(color: primaryMint.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
+                                child: const Icon(Icons.person, color: navyDeep),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(name, style: const TextStyle(fontWeight: FontWeight.w900, color: navyDeep)),
+                                    Text(username, style: TextStyle(fontSize: 12, color: navyDeep.withOpacity(0.6))),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.check_circle, color: Colors.green),
+                                onPressed: () {
+                                  AuthService().acceptRequest(currentUid, requesterId);
+                                  Navigator.pop(context);
+                                },
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.cancel, color: Colors.red),
+                                onPressed: () {
+                                  AuthService().rejectRequest(currentUid, requesterId);
+                                  Navigator.pop(context);
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -369,38 +535,46 @@ class HomeScreen extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _buildNavIcon(Icons.home_filled, 'Home', isActive: true),
-            _buildNavIcon(Icons.explore_outlined, 'Quests'),
-            _buildNavIcon(Icons.map_outlined, 'Map'),
-            _buildNavIcon(Icons.group_outlined, 'Social'),
+            _buildNavIcon(Icons.home_filled, 'Home', 0),
+            _buildNavIcon(Icons.explore_outlined, 'Quests', 1),
+            _buildNavIcon(Icons.map_outlined, 'Map', 2),
+            _buildNavIcon(Icons.group_outlined, 'Social', 3),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildNavIcon(IconData icon, String label, {bool isActive = false}) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 40, height: 40,
-          decoration: BoxDecoration(
-            color: isActive ? primaryMint.withOpacity(0.2) : Colors.transparent,
-            shape: BoxShape.circle,
+  Widget _buildNavIcon(IconData icon, String label, int index) {
+    bool isActive = _currentIndex == index;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _currentIndex = index;
+        });
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40, height: 40,
+            decoration: BoxDecoration(
+              color: isActive ? primaryMint.withOpacity(0.2) : Colors.transparent,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: isActive ? navyDeep : navyDeep.withOpacity(0.4)),
           ),
-          child: Icon(icon, color: isActive ? navyDeep : navyDeep.withOpacity(0.4)),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label.toUpperCase(),
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            color: isActive ? navyDeep : navyDeep.withOpacity(0.4),
+          const SizedBox(height: 4),
+          Text(
+            label.toUpperCase(),
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: isActive ? navyDeep : navyDeep.withOpacity(0.4),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
