@@ -1,6 +1,6 @@
 # eco_quest
 
-A new Flutter project.
+Trash collection app with incentives and hook.
 
 ## Getting Started
 
