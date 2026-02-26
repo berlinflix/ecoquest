@@ -1,9 +1,11 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:countries_world_map/countries_world_map.dart';
-import 'package:countries_world_map/data/maps/world_map.dart'; // Typically needed for SMapWorld if not auto-exported
+import 'package:countries_world_map/data/maps/world_map.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class InteractivePollutionMap extends StatefulWidget {
-  const InteractivePollutionMap({Key? key}) : super(key: key);
+  const InteractivePollutionMap({super.key});
 
   @override
   State<InteractivePollutionMap> createState() => _InteractivePollutionMapState();
@@ -29,20 +31,20 @@ class _InteractivePollutionMapState extends State<InteractivePollutionMap> {
     'VI': 1, 'UY': 16, 'VU': 1, 'VE': 50, 'VN': 198, 'YE': 7, 'ZW': 2
   };
 
-  String selectedCountryName = "SCANNING PLANET...";
-  String selectedWasteCount = "Tap a region to analyze.";
-  Color panelColor = Colors.grey.shade900;
+  final Color bgColor = const Color(0xFFE5D9C5);
+  final Color primaryBlue = const Color(0xFF38BDF8);
+  final Color mapBgColor = const Color(0xFFC4B69D);
 
   Map<String, Color> _generateMapColors() {
     Map<String, Color> colors = {};
     wasteData.forEach((countryCode, siteCount) {
-      Color c = Colors.grey.shade300;
+      Color c = mapBgColor;
       if (siteCount >= 200) {
-        c = Colors.redAccent;
+        c = Colors.red.shade500;
       } else if (siteCount >= 50) {
-        c = Colors.orangeAccent;
+        c = Colors.orange.shade500;
       } else if (siteCount > 0) {
-        c = Colors.yellowAccent;
+        c = Colors.yellow.shade500;
       }
       colors[countryCode.toLowerCase()] = c;
       colors[countryCode.toUpperCase()] = c;
@@ -50,65 +52,358 @@ class _InteractivePollutionMapState extends State<InteractivePollutionMap> {
     return colors;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F8F7),
-      appBar: AppBar(
-        title: const Text('GLOBAL THREAT RADAR', style: TextStyle(color: Color(0xFF0A192F), fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Color(0xFF25F4AF)),
-      ),
-      body: Column(
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-            decoration: BoxDecoration(color: panelColor),
-            child: Column(
-              children: [
-                Text(selectedCountryName.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                Text(selectedWasteCount, style: const TextStyle(color: Colors.white, fontSize: 18)),
-              ],
-            ),
+  String _getFlagEmoji(String countryCode) {
+    if (countryCode.length != 2) return "🗺️";
+    int offset = 127397;
+    int firstChar = countryCode.codeUnitAt(0) + offset;
+    int secondChar = countryCode.codeUnitAt(1) + offset;
+    return String.fromCharCode(firstChar) + String.fromCharCode(secondChar);
+  }
+
+  void _showCountryDetails(BuildContext context, String id, String name) {
+    String upperId = id.toUpperCase();
+    int count = wasteData.containsKey(upperId) ? wasteData[upperId]! : 0;
+    
+    String threatLevel = "LOW";
+    Color threatColor = Colors.amber.shade600;
+    Color threatBg = Colors.amber.shade50.withValues(alpha: 0.5);
+    Color threatBorder = Colors.amber.shade200.withValues(alpha: 0.5);
+    IconData threatIcon = Icons.info_outline;
+
+    if (count >= 200) {
+      threatLevel = "CRITICAL";
+      threatColor = Colors.red.shade600;
+      threatBg = Colors.red.shade50.withValues(alpha: 0.5);
+      threatBorder = Colors.red.shade200.withValues(alpha: 0.5);
+      threatIcon = Icons.warning_rounded;
+    } else if (count >= 50) {
+      threatLevel = "ELEVATED";
+      threatColor = Colors.orange.shade600;
+      threatBg = Colors.orange.shade50.withValues(alpha: 0.5);
+      threatBorder = Colors.orange.shade200.withValues(alpha: 0.5);
+      threatIcon = Icons.warning_rounded;
+    } else if (count > 0) {
+      threatLevel = "STABLE";
+      threatColor = Colors.yellow.shade700;
+      threatBg = Colors.yellow.shade50.withValues(alpha: 0.5);
+      threatBorder = Colors.yellow.shade200.withValues(alpha: 0.5);
+      threatIcon = Icons.info_outline;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.88),
+            borderRadius: BorderRadius.circular(32),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 24,
+                spreadRadius: 0,
+              )
+            ]
           ),
-          Expanded(
-            child: InteractiveViewer(
-              minScale: 1.0, 
-              maxScale: 5.0,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(32),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
               child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: SimpleMap(
-                  instructions: SMapWorld.instructions,
-                  defaultColor: Colors.grey.shade300,
-                  colors: _generateMapColors(),
-                  callback: (id, name, tapDetails) {
-                    setState(() {
-                      selectedCountryName = name;
-                      String upperId = id.toUpperCase();
-                      if (wasteData.containsKey(upperId)) {
-                        int count = wasteData[upperId]!;
-                        selectedWasteCount = "$count DETECTED WASTE SITES";
-                        if (count >= 200) {
-                          panelColor = Colors.red.shade900;
-                        } else if (count >= 50) {
-                          panelColor = Colors.orange.shade900;
-                        } else {
-                          panelColor = Colors.yellow.shade900;
-                        }
-                      } else {
-                        selectedWasteCount = "0 DETECTED WASTE SITES";
-                        panelColor = Colors.grey.shade900;
-                      }
-                    });
-                  },
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Top drag handle
+                    Container(
+                      width: 48,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: Colors.blueGrey.shade200,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    // Header Area
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          _getFlagEmoji(upperId),
+                          style: const TextStyle(fontSize: 36),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Text(
+                            name,
+                            style: GoogleFonts.outfit(
+                              fontSize: 26,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.blueGrey.shade900,
+                              height: 1.1,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          width: 32, height: 32,
+                          decoration: BoxDecoration(
+                            color: Colors.blueGrey.shade50,
+                            shape: BoxShape.circle,
+                          ),
+                          child: IconButton(
+                            onPressed: () => Navigator.pop(context),
+                            icon: Icon(Icons.close, color: Colors.blueGrey.shade400, size: 16),
+                            padding: EdgeInsets.zero,
+                          ),
+                        )
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    // Stat Cards
+                    Row(
+                      children: [
+                        // Left Card
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50.withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Colors.blue.shade200.withValues(alpha: 0.5)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "WASTE SITES",
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.blue.shade500,
+                                    letterSpacing: 1.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  count.toString(),
+                                  style: GoogleFonts.pressStart2p(
+                                    fontSize: 24,
+                                    color: Colors.blue.shade600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        // Right Card
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: threatBg,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: threatBorder),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "SECTOR THREAT",
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.amber.shade500,
+                                    letterSpacing: 1.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        threatLevel,
+                                        style: GoogleFonts.outfit(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w900,
+                                          color: threatColor,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      threatIcon,
+                                      color: threatColor,
+                                      size: 14,
+                                    )
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
-        ],
+        );
+      }
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: bgColor,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Top Header
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.4),
+                border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.2))),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    width: 40, height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        )
+                      ]
+                    ),
+                    child: IconButton(
+                      icon: Icon(Icons.arrow_back, color: Colors.blueGrey.shade700),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ),
+                  Column(
+                    children: [
+                      Text(
+                        "WASTE WATCHER",
+                        style: GoogleFonts.pressStart2p(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: -0.5,
+                          color: Colors.blueGrey.shade800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "SATELLITE DATA",
+                        style: GoogleFonts.outfit(
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                          color: primaryBlue,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    width: 40, height: 40,
+                    decoration: BoxDecoration(
+                      color: primaryBlue,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: primaryBlue.withValues(alpha: 0.3),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        )
+                      ]
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.radar, color: Colors.white, size: 20),
+                      onPressed: () {},
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            // Status Bar
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              decoration: BoxDecoration(
+                color: primaryBlue.withValues(alpha: 0.9),
+                border: Border.symmetric(horizontal: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    "LINK: STABLE",
+                    style: GoogleFonts.pressStart2p(
+                      fontSize: 7,
+                      color: Colors.white,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Text(
+                        "415",
+                        style: GoogleFonts.outfit(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        "SITES",
+                        style: GoogleFonts.outfit(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white.withValues(alpha: 0.9),
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                    ],
+                  )
+                ],
+              ),
+            ),
+
+            // Map Area
+            Expanded(
+              child: InteractiveViewer(
+                minScale: 1.0, 
+                maxScale: 5.0,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: SimpleMap(
+                    instructions: SMapWorld.instructions,
+                    defaultColor: mapBgColor,
+                    colors: _generateMapColors(),
+                    callback: (id, name, tapDetails) {
+                      _showCountryDetails(context, id, name);
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
