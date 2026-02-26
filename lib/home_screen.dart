@@ -6,6 +6,7 @@ import 'auth_service.dart';
 import 'quest_screen.dart';
 import 'quest_state.dart';
 import 'social_screen.dart';
+import 'map_screen.dart';
 const Color primaryMint = Color(0xFF25F4AF);
 const Color backgroundLight = Color(0xFFF5F8F7);
 const Color navyDeep = Color(0xFF0A192F);
@@ -562,9 +563,13 @@ class _HomeScreenState extends State<HomeScreen> {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () {
-          setState(() {
-            _currentIndex = index;
-          });
+          if (index == 2) {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const InteractivePollutionMap()));
+          } else {
+            setState(() {
+              _currentIndex = index;
+            });
+          }
         },
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8.0),
