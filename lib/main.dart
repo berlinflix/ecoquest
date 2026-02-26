@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 import 'login_screen.dart';
+import 'home_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  
+  // Enable Full Screen Immersive Mode (Hides Status Bar & Nav Bar)
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+
   runApp(const EcoQuestApp());
 }
 
@@ -17,6 +24,7 @@ class EcoQuestApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Eco Quest',
       theme: ThemeData(
         brightness: Brightness.light,
@@ -41,7 +49,22 @@ class EcoQuestApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const LoginScreen(),
+      home: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+          if (snapshot.hasData) {
+            // User is signed in
+            return const HomeScreen();
+          }
+          // User is NOT signed in
+          return const LoginScreen();
+        }
+      ),
     );
   }
 }

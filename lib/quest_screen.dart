@@ -4,6 +4,7 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:io';
 import 'dart:math' as math;
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'quest_state.dart';
 
 const Color primaryBlue = Color(0xFF0d93f2);
@@ -155,9 +156,17 @@ class _QuestScreenState extends State<QuestScreen> {
     setState(() => _isVerifying = true);
 
     try {
-      const apiKey = String.fromEnvironment('GEMINI_API_KEY', defaultValue: 'YOUR_API_KEY');
-      if (apiKey == 'YOUR_API_KEY') {
-        debugPrint('WARNING: Please set your Gemini API key');
+      // Fetch the API Key from Cloud Firestore securely
+      final configDoc = await FirebaseFirestore.instance.collection('config').doc('api_keys').get();
+      final apiKey = configDoc.data()?['gemini_api_key'] as String?;
+      
+      if (apiKey == null || apiKey.isEmpty) {
+        debugPrint('WARNING: gemini_api_key field not found or empty in Firestore');
+        if (mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Firebase Configuration missing API key.')));
+        }
+        setState(() => _isVerifying = false);
+        return;
       }
 
       final model = GenerativeModel(
