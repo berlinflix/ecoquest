@@ -7,6 +7,9 @@ import 'quest_screen.dart';
 import 'quest_state.dart';
 import 'social_screen.dart';
 import 'map_screen.dart';
+import 'squad_hub_screen.dart';
+import 'exchange_screen.dart';
+import 'dart:math';
 const Color primaryMint = Color(0xFF25F4AF);
 const Color backgroundLight = Color(0xFFF5F8F7);
 const Color navyDeep = Color(0xFF0A192F);
@@ -50,8 +53,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ],
                 ),
-                // 1: Quests (Placeholder, reusing Home for now)
-                const Center(child: Text("Quests Map Coming Soon")),
+                // 1: Exchange Hub
+                const ExchangeScreen(),
                 // 2: Map (Placeholder)
                 const Center(child: Text("Global Map Coming Soon")),
                 // 3: Social Leaderboard
@@ -429,20 +432,41 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: _buildStatCard(
-                  icon: Icons.group,
-                  title: 'SQUAD',
-                  value: 'Beach Boys',
-                  content: Row(
-                    children: [
-                      _buildAvatar(Colors.grey.shade300, null),
-                      Transform.translate(offset: const Offset(-8, 0), child: _buildAvatar(Colors.grey.shade400, null)),
-                      Transform.translate(
-                        offset: const Offset(-16, 0),
-                        child: _buildAvatar(primaryMint, const Text('+3', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: navyDeep))),
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseAuth.instance.currentUser == null ? null : FirebaseFirestore.instance.collection('squads').where('memberIds', arrayContains: FirebaseAuth.instance.currentUser!.uid).snapshots(),
+                  builder: (context, snapshot) {
+                    String squadName = 'No Squad';
+                    int memberCount = 0;
+                    if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+                       final docs = snapshot.data!.docs;
+                       // Pick a random squad or cycle to satisfy "alternate" requirement
+                       final sq = docs[Random().nextInt(docs.length)].data() as Map<String, dynamic>;
+                       squadName = sq['name'] ?? 'Squad';
+                       final memberIds = sq['memberIds'] as List<dynamic>? ?? [];
+                       memberCount = memberIds.length;
+                    }
+                    
+                    return GestureDetector(
+                      onTap: () {
+                         Navigator.push(context, MaterialPageRoute(builder: (context) => const SquadHubScreen()));
+                      },
+                      child: _buildStatCard(
+                        icon: Icons.group,
+                        title: 'SQUAD',
+                        value: squadName,
+                        content: Row(
+                          children: [
+                            _buildAvatar(Colors.grey.shade300, null),
+                            if (memberCount > 1) Transform.translate(offset: const Offset(-8, 0), child: _buildAvatar(Colors.grey.shade400, null)),
+                            if (memberCount > 2) Transform.translate(
+                              offset: const Offset(-16, 0),
+                              child: _buildAvatar(primaryMint, Text('+\${memberCount - 2}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: navyDeep))),
+                            ),
+                          ],
+                        ),
                       ),
-                    ],
-                  ),
+                    );
+                  }
                 ),
               ),
             ],
@@ -548,7 +572,7 @@ class _HomeScreenState extends State<HomeScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             _buildNavIcon(Icons.home_filled, 'Home', 0),
-            _buildNavIcon(Icons.explore_outlined, 'Quests', 1),
+            _buildNavIcon(Icons.swap_horiz, 'Exchange', 1),
             _buildNavIcon(Icons.map_outlined, 'Map', 2),
             _buildNavIcon(Icons.group_outlined, 'Social', 3),
           ],
