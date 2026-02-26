@@ -21,6 +21,8 @@ class FriendProfileScreen extends StatelessWidget {
     final int exp = userData['exp'] ?? 0;
     final int level = LevelUtils.calculateLevel(exp);
     final int questsCompleted = userData['questsCompleted'] ?? (exp ~/ 50);
+    final List<dynamic> friendsList = userData['friends'] ?? [];
+    final int friendsCount = friendsList.length;
 
     String memberSince = '2023';
     if (userData['createdAt'] != null) {
@@ -221,10 +223,7 @@ class FriendProfileScreen extends StatelessWidget {
                         const SizedBox(height: 16),
                         _buildImpactRow('Quests Completed', '$questsCompleted'),
                         const Divider(height: 24),
-                        _buildImpactRow(
-                          'Friends in Squad',
-                          '3',
-                        ), // Dummy for now
+                        _buildImpactRow('Friends in Squad', '$friendsCount'),
                         const Divider(height: 24),
                         _buildImpactRow('Member Since', memberSince),
                       ],
