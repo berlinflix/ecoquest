@@ -52,8 +52,12 @@ class _QuestScreenState extends State<QuestScreen> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 15, spreadRadius: 5)
-              ]
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 15,
+                  spreadRadius: 5,
+                ),
+              ],
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -62,15 +66,30 @@ class _QuestScreenState extends State<QuestScreen> {
                   padding: const EdgeInsets.only(top: 8.0),
                   child: ListTile(
                     leading: const Icon(Icons.camera_alt, color: primaryBlue),
-                    title: const Text('Take Photo', style: TextStyle(color: Color(0xFF101b22), fontWeight: FontWeight.bold)),
+                    title: const Text(
+                      'Take Photo',
+                      style: TextStyle(
+                        color: Color(0xFF101b22),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     onTap: () => Navigator.pop(context, ImageSource.camera),
                   ),
                 ),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8.0),
                   child: ListTile(
-                    leading: const Icon(Icons.photo_library, color: primaryBlue),
-                    title: const Text('Upload from Gallery (Testing)', style: TextStyle(color: Color(0xFF101b22), fontWeight: FontWeight.bold)),
+                    leading: const Icon(
+                      Icons.photo_library,
+                      color: primaryBlue,
+                    ),
+                    title: const Text(
+                      'Upload from Gallery (Testing)',
+                      style: TextStyle(
+                        color: Color(0xFF101b22),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     onTap: () => Navigator.pop(context, ImageSource.gallery),
                   ),
                 ),
@@ -105,13 +124,26 @@ class _QuestScreenState extends State<QuestScreen> {
         backgroundColor: Colors.white,
         actionsAlignment: MainAxisAlignment.spaceBetween,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('TARGET LOCKED', style: TextStyle(color: primaryBlue, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+        title: const Text(
+          'TARGET LOCKED',
+          style: TextStyle(
+            color: primaryBlue,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.5,
+          ),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.file(image, height: 160, fit: BoxFit.cover)),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.file(image, height: 160, fit: BoxFit.cover),
+            ),
             const SizedBox(height: 20),
-            const Text('How much time do you need to clean this area?', style: TextStyle(color: Color(0xFF101b22))),
+            const Text(
+              'How much time do you need to clean this area?',
+              style: TextStyle(color: Color(0xFF101b22)),
+            ),
           ],
         ),
         actions: [
@@ -120,7 +152,10 @@ class _QuestScreenState extends State<QuestScreen> {
               Navigator.pop(context);
               captureImage(true);
             },
-            child: const Text('RETAKE', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+            child: const Text(
+              'RETAKE',
+              style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
+            ),
           ),
           Row(
             mainAxisSize: MainAxisSize.min,
@@ -130,7 +165,13 @@ class _QuestScreenState extends State<QuestScreen> {
                   Navigator.pop(context);
                   _questState.startQuest(image, 15);
                 },
-                child: const Text('15 MIN', style: TextStyle(color: primaryBlue, fontWeight: FontWeight.bold)),
+                child: const Text(
+                  '15 MIN',
+                  style: TextStyle(
+                    color: primaryBlue,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
               ElevatedButton(
                 onPressed: () {
@@ -140,12 +181,17 @@ class _QuestScreenState extends State<QuestScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryBlue,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
-                child: const Text('30 MIN', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: const Text(
+                  '30 MIN',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
             ],
-          )
+          ),
         ],
       ),
     );
@@ -153,64 +199,83 @@ class _QuestScreenState extends State<QuestScreen> {
 
   // AI VERIFICATION using Gemini 1.5 Flash (Kept Intact)
   Future<void> verifyWithAI() async {
-    if (_questState.beforeImage == null || _questState.afterImage == null) return;
+    if (_questState.beforeImage == null || _questState.afterImage == null)
+      return;
 
     setState(() => _isVerifying = true);
 
     try {
       // Fetch the API Key from Cloud Firestore securely
-      final configDoc = await FirebaseFirestore.instance.collection('config').doc('api_keys').get();
+      final configDoc = await FirebaseFirestore.instance
+          .collection('config')
+          .doc('api_keys')
+          .get();
       final apiKey = configDoc.data()?['gemini_api_key'] as String?;
-      
+
       if (apiKey == null || apiKey.isEmpty) {
-        debugPrint('WARNING: gemini_api_key field not found or empty in Firestore');
+        debugPrint(
+          'WARNING: gemini_api_key field not found or empty in Firestore',
+        );
         if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Firebase Configuration missing API key.')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Firebase Configuration missing API key.'),
+            ),
+          );
         }
         setState(() => _isVerifying = false);
         return;
       }
 
-      final model = GenerativeModel(
-        model: 'gemini-2.5-flash',
-        apiKey: apiKey,
-      );
+      final model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: apiKey);
 
       final beforeBytes = await _questState.beforeImage!.readAsBytes();
       final afterBytes = await _questState.afterImage!.readAsBytes();
 
       final prompt = TextPart(
-          'Analyze these two images. The first image is the "before" state of an area, and the second image is the "after" state. '
-          'Verify if the trash in the "before" image was cleaned up in the "after" image. '
-          'You must output strictly either "1" (yes, it is clean) or "0" (no, it is not clean). Do not output any other text.');
-      
+        'Analyze these two images. The first image is the "before" state of an area, and the second image is the "after" state. '
+        'Verify if the trash in the "before" image was cleaned up in the "after" image. '
+        'You must output strictly either "1" (yes, it is clean) or "0" (no, it is not clean). Do not output any other text.',
+      );
+
       final imageParts = [
         DataPart('image/jpeg', beforeBytes),
         DataPart('image/jpeg', afterBytes),
       ];
 
       final response = await model.generateContent([
-        Content.multi([...imageParts, prompt])
+        Content.multi([...imageParts, prompt]),
       ]);
 
       final text = response.text?.trim() ?? '0';
 
       setState(() => _isVerifying = false);
-      
+
       if (text == '1') {
         try {
           final uid = FirebaseAuth.instance.currentUser?.uid;
           if (uid != null) {
-            await FirebaseFirestore.instance.runTransaction((transaction) async {
-              final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
+            await FirebaseFirestore.instance.runTransaction((
+              transaction,
+            ) async {
+              final userRef = FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(uid);
               final userSnapshot = await transaction.get(userRef);
               if (userSnapshot.exists) {
-                final currentExp = userSnapshot.data()?['exp'] ?? 0;
+                final data = userSnapshot.data();
+                final currentExp = data?['exp'] ?? 0;
+                final currentQuests =
+                    data?['questsCompleted'] ?? (currentExp ~/ 50);
+
                 final newExp = currentExp + 50;
                 final newLevel = LevelUtils.calculateLevel(newExp);
+                final newQuestsCompleted = currentQuests + 1;
+
                 transaction.update(userRef, {
                   'exp': newExp,
                   'level': newLevel,
+                  'questsCompleted': newQuestsCompleted,
                 });
               }
             });
@@ -220,47 +285,81 @@ class _QuestScreenState extends State<QuestScreen> {
         }
 
         if (mounted) {
-          _showResultDialog(true, 'QUEST CLEARED!', 'AI verified the location is clean. +50 EXP added to your profile!', const Color(0xFF4CAF50));
+          _showResultDialog(
+            true,
+            'QUEST CLEARED!',
+            'AI verified the location is clean. +50 EXP added to your profile!',
+            const Color(0xFF4CAF50),
+          );
         }
       } else {
         if (mounted) {
-           _showResultDialog(false, 'QUEST FAILED', 'AI detected that the trash was not properly cleaned. Try again!', Colors.orangeAccent);
+          _showResultDialog(
+            false,
+            'QUEST FAILED',
+            'AI detected that the trash was not properly cleaned. Try again!',
+            Colors.orangeAccent,
+          );
         }
       }
     } catch (e) {
       setState(() => _isVerifying = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Verification failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Verification failed: $e')));
       }
     }
   }
 
-  void _showResultDialog(bool success, String title, String message, Color color) {
+  void _showResultDialog(
+    bool success,
+    String title,
+    String message,
+    Color color,
+  ) {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(title, style: TextStyle(color: color, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-        content: Text(message, style: const TextStyle(color: Color(0xFF101b22))),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.5,
+          ),
+        ),
+        content: Text(
+          message,
+          style: const TextStyle(color: Color(0xFF101b22)),
+        ),
         actions: [
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: color, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: color,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
             onPressed: () {
               Navigator.of(context).pop();
               if (success) {
                 _questState.clearQuest();
                 Navigator.of(context).pop();
               } else {
-                _questState.setAfterImage(File('')); 
-                _questState.afterImage = null; 
+                _questState.setAfterImage(File(''));
+                _questState.afterImage = null;
               }
             },
-            child: Text(success ? 'COLLECT REWARD' : 'RETRY POST-CLEANUP', style: const TextStyle(fontWeight: FontWeight.bold)),
-          )
+            child: Text(
+              success ? 'COLLECT REWARD' : 'RETRY POST-CLEANUP',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
         ],
       ),
     );
@@ -279,9 +378,14 @@ class _QuestScreenState extends State<QuestScreen> {
         decoration: BoxDecoration(
           color: bgLight,
           image: DecorationImage(
-             image: const CachedNetworkImageProvider('https://lh3.googleusercontent.com/aida-public/AB6AXuCtzKhniqWljsh4GjuJlikuzrEvoffL3SJh3QWErjHv4cWxgf4dlbkjBb1p-MLFMAmylwi7pFW5a3aZkQLR7O5Fj5l1y2DdpeX0sP1E1xF3zzzoNY-czRxVQlIm-YpwwC5eiFAnqm3oR-kYu0Jm_5XJ35LBQ-4fSenmnBpIB7v6X5-2ddyXJfZI_s9sb83_AaYY7FmHulfx_CVdn_izr3IBnDoJIJfDSRQ6p-STwGT8D6HuA4NK--BOfNmIXawefCXb3MKSi18iyPs'),
-             fit: BoxFit.cover,
-             colorFilter: ColorFilter.mode(bgLight.withOpacity(0.9), BlendMode.lighten),
+            image: const CachedNetworkImageProvider(
+              'https://lh3.googleusercontent.com/aida-public/AB6AXuCtzKhniqWljsh4GjuJlikuzrEvoffL3SJh3QWErjHv4cWxgf4dlbkjBb1p-MLFMAmylwi7pFW5a3aZkQLR7O5Fj5l1y2DdpeX0sP1E1xF3zzzoNY-czRxVQlIm-YpwwC5eiFAnqm3oR-kYu0Jm_5XJ35LBQ-4fSenmnBpIB7v6X5-2ddyXJfZI_s9sb83_AaYY7FmHulfx_CVdn_izr3IBnDoJIJfDSRQ6p-STwGT8D6HuA4NK--BOfNmIXawefCXb3MKSi18iyPs',
+            ),
+            fit: BoxFit.cover,
+            colorFilter: ColorFilter.mode(
+              bgLight.withOpacity(0.9),
+              BlendMode.lighten,
+            ),
           ),
         ),
         child: SafeArea(
@@ -293,11 +397,16 @@ class _QuestScreenState extends State<QuestScreen> {
                   Expanded(
                     child: SingleChildScrollView(
                       child: Padding(
-                        padding: const EdgeInsets.only(left: 24, right: 24, top: 32, bottom: 150),
+                        padding: const EdgeInsets.only(
+                          left: 24,
+                          right: 24,
+                          top: 32,
+                          bottom: 150,
+                        ),
                         child: Column(
                           children: [
                             if (_isVerifying)
-                               _buildLoader()
+                              _buildLoader()
                             else ...[
                               _buildBeforeSection(),
                               const SizedBox(height: 32),
@@ -307,16 +416,29 @@ class _QuestScreenState extends State<QuestScreen> {
                                 // NEW RESET BUTTON
                                 TextButton.icon(
                                   onPressed: () {
-                                     _questState.clearQuest();
-                                     ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Quest Aborted. Images cleared.'))
-                                     );
+                                    _questState.clearQuest();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Quest Aborted. Images cleared.',
+                                        ),
+                                      ),
+                                    );
                                   },
-                                  icon: const Icon(Icons.cancel_outlined, color: Colors.redAccent),
-                                  label: const Text('ABORT QUEST & START OVER', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                                  icon: const Icon(
+                                    Icons.cancel_outlined,
+                                    color: Colors.redAccent,
+                                  ),
+                                  label: const Text(
+                                    'ABORT QUEST & START OVER',
+                                    style: TextStyle(
+                                      color: Colors.redAccent,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                                 ),
-                              ]
-                            ]
+                              ],
+                            ],
                           ],
                         ),
                       ),
@@ -326,21 +448,37 @@ class _QuestScreenState extends State<QuestScreen> {
               ),
               if (_questState.isActive && !_isVerifying)
                 Positioned(
-                  top: 80, right: 24,
+                  top: 80,
+                  right: 24,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: primaryBlue,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: Colors.white, width: 2),
-                      boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
+                      boxShadow: const [
+                        BoxShadow(color: Colors.black26, blurRadius: 10),
+                      ],
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.schedule, color: Colors.white, size: 16),
+                        const Icon(
+                          Icons.schedule,
+                          color: Colors.white,
+                          size: 16,
+                        ),
                         const SizedBox(width: 8),
-                        Text(_formatTime(_questState.remainingSeconds), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        Text(
+                          _formatTime(_questState.remainingSeconds),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -362,20 +500,49 @@ class _QuestScreenState extends State<QuestScreen> {
           GestureDetector(
             onTap: () => Navigator.pop(context),
             child: Container(
-              width: 40, height: 40,
-              decoration: BoxDecoration(color: Colors.white.withOpacity(0.8), shape: BoxShape.circle, boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 5)]),
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.8),
+                shape: BoxShape.circle,
+                boxShadow: const [
+                  BoxShadow(color: Colors.black12, blurRadius: 5),
+                ],
+              ),
               child: const Icon(Icons.arrow_back, color: Color(0xFF101b22)),
             ),
           ),
           const Column(
             children: [
-              Text('Active Mission', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF101b22))),
-              Text('BEACH CLEAN-UP', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: primaryBlue, letterSpacing: 2)),
+              Text(
+                'Active Mission',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF101b22),
+                ),
+              ),
+              Text(
+                'BEACH CLEAN-UP',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: primaryBlue,
+                  letterSpacing: 2,
+                ),
+              ),
             ],
           ),
           Container(
-            width: 40, height: 40,
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.8), shape: BoxShape.circle, boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 5)]),
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.8),
+              shape: BoxShape.circle,
+              boxShadow: const [
+                BoxShadow(color: Colors.black12, blurRadius: 5),
+              ],
+            ),
             child: const Icon(Icons.info_outline, color: Color(0xFF101b22)),
           ),
         ],
@@ -399,8 +566,13 @@ class _QuestScreenState extends State<QuestScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: primaryBlue,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
                 elevation: 4,
               ),
             ),
@@ -415,27 +587,66 @@ class _QuestScreenState extends State<QuestScreen> {
           angle: -0.05, // -2 degrees
           child: Container(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 48),
-            decoration: BoxDecoration(color: Colors.white, boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, 4))]),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black12,
+                  blurRadius: 20,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
             child: AspectRatio(
               aspectRatio: 1,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
                   ColorFiltered(
-                     colorFilter: const ColorFilter.matrix([
-                        0.33, 0.33, 0.33, 0, 0,
-                        0.33, 0.33, 0.33, 0, 0,
-                        0.33, 0.33, 0.33, 0, 0,
-                        0, 0, 0, 1, 0,
-                     ]),
-                    child: Image.file(image, fit: BoxFit.cover)
+                    colorFilter: const ColorFilter.matrix([
+                      0.33,
+                      0.33,
+                      0.33,
+                      0,
+                      0,
+                      0.33,
+                      0.33,
+                      0.33,
+                      0,
+                      0,
+                      0.33,
+                      0.33,
+                      0.33,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      1,
+                      0,
+                    ]),
+                    child: Image.file(image, fit: BoxFit.cover),
                   ),
                   Positioned(
-                    top: 8, left: 8,
+                    top: 8,
+                    left: 8,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(4)),
-                      child: const Text('BEFORE', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        'BEFORE',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -445,7 +656,7 @@ class _QuestScreenState extends State<QuestScreen> {
         ),
         if (!_questState.isActive) ...[
           const SizedBox(height: 24),
-           ElevatedButton.icon(
+          ElevatedButton.icon(
             onPressed: () => captureImage(true),
             icon: const Icon(Icons.refresh),
             label: const Text('Retake Before'),
@@ -453,11 +664,14 @@ class _QuestScreenState extends State<QuestScreen> {
               backgroundColor: Colors.white,
               foregroundColor: primaryBlue,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30), side: BorderSide(color: primaryBlue.withOpacity(0.2), width: 2)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+                side: BorderSide(color: primaryBlue.withOpacity(0.2), width: 2),
+              ),
               elevation: 0,
             ),
           ),
-        ]
+        ],
       ],
     );
   }
@@ -470,55 +684,115 @@ class _QuestScreenState extends State<QuestScreen> {
           angle: 0.02, // 1 degree
           child: Container(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 48),
-            decoration: BoxDecoration(color: Colors.white, boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, 4))]),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black12,
+                  blurRadius: 20,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
             child: AspectRatio(
               aspectRatio: 1,
               child: image == null
-                ? Container(
-                    decoration: BoxDecoration(color: Colors.grey.shade50, border: Border.all(color: Colors.grey.shade200, width: 2, style: BorderStyle.none)), // Fake dashed border via CustomPainter or simple border
-                    child: Stack(
-                      children: [
-                        Positioned.fill(
-                             child: DecoratedBox(
-                                 decoration: BoxDecoration(
-                                     border: Border.all(color: Colors.grey.shade300, width: 2)
-                                 ),
-                             )
-                         ),
-                         Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                             Icon(Icons.image, size: 48, color: Colors.grey.shade300),
-                            const SizedBox(height: 8),
-                            Text('Waiting for impact', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade400, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 2)),
-                          ],
+                  ? Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        border: Border.all(
+                          color: Colors.grey.shade200,
+                          width: 2,
+                          style: BorderStyle.none,
                         ),
+                      ), // Fake dashed border via CustomPainter or simple border
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: Colors.grey.shade300,
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                          ),
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Icon(
+                                Icons.image,
+                                size: 48,
+                                color: Colors.grey.shade300,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Waiting for impact',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.grey.shade400,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 2,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Positioned(
+                            top: 8,
+                            left: 8,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: primaryBlue.withOpacity(0.8),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                'AFTER',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.file(image, fit: BoxFit.cover),
                         Positioned(
-                          top: 8, left: 8,
+                          top: 8,
+                          left: 8,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(color: primaryBlue.withOpacity(0.8), borderRadius: BorderRadius.circular(4)),
-                            child: const Text('AFTER', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: primaryBlue.withOpacity(0.8),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'AFTER',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
                         ),
                       ],
                     ),
-                  )
-                : Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Image.file(image, fit: BoxFit.cover),
-                      Positioned(
-                        top: 8, left: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(color: primaryBlue.withOpacity(0.8), borderRadius: BorderRadius.circular(4)),
-                          child: const Text('AFTER', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                        ),
-                      ),
-                    ],
-                  ),
             ),
           ),
         ),
@@ -532,66 +806,90 @@ class _QuestScreenState extends State<QuestScreen> {
               backgroundColor: Colors.white,
               foregroundColor: primaryBlue,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30), side: BorderSide(color: primaryBlue.withOpacity(0.2), width: 2)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+                side: BorderSide(color: primaryBlue.withOpacity(0.2), width: 2),
+              ),
               elevation: 0,
             ),
           )
         else
-           Column(
-             children: [
-               ElevatedButton.icon(
-                  onPressed: verifyWithAI,
-                  icon: const Icon(Icons.check_circle),
-                  label: const Text('VERIFY CLEANUP'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryBlue,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                    elevation: 4,
+          Column(
+            children: [
+              ElevatedButton.icon(
+                onPressed: verifyWithAI,
+                icon: const Icon(Icons.check_circle),
+                label: const Text('VERIFY CLEANUP'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryBlue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 16,
                   ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  elevation: 4,
                 ),
-               TextButton(
-                 onPressed: () => captureImage(false),
-                 child: const Text('Retake Upload', style: TextStyle(color: Colors.grey)),
-               ),
-             ],
-           )
+              ),
+              TextButton(
+                onPressed: () => captureImage(false),
+                child: const Text(
+                  'Retake Upload',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+            ],
+          ),
       ],
     );
   }
-  
-   Widget _buildLoader() {
-      return Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+
+  Widget _buildLoader() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const SizedBox(height: 60),
+        Stack(
+          alignment: Alignment.center,
           children: [
-            const SizedBox(height: 60),
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                SizedBox(
-                  width: 120, height: 120,
-                  child: CircularProgressIndicator(
-                    valueColor: const AlwaysStoppedAnimation<Color>(primaryBlue),
-                    strokeWidth: 6,
-                    backgroundColor: primaryBlue.withOpacity(0.1),
-                  ),
-                ),
-                const Icon(Icons.auto_awesome, size: 50, color: primaryBlue),
-              ],
+            SizedBox(
+              width: 120,
+              height: 120,
+              child: CircularProgressIndicator(
+                valueColor: const AlwaysStoppedAnimation<Color>(primaryBlue),
+                strokeWidth: 6,
+                backgroundColor: primaryBlue.withOpacity(0.1),
+              ),
             ),
-            const SizedBox(height: 40),
-            const Text('AI IS ANALYZING...', 
-              style: TextStyle(color: primaryBlue, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-            const SizedBox(height: 10),
-            const Text('Determining environmental impact.', style: TextStyle(color: Colors.grey)),
+            const Icon(Icons.auto_awesome, size: 50, color: primaryBlue),
           ],
-      );
+        ),
+        const SizedBox(height: 40),
+        const Text(
+          'AI IS ANALYZING...',
+          style: TextStyle(
+            color: primaryBlue,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.5,
+          ),
+        ),
+        const SizedBox(height: 10),
+        const Text(
+          'Determining environmental impact.',
+          style: TextStyle(color: Colors.grey),
+        ),
+      ],
+    );
   }
 
   Widget _buildBottomNavBar() {
     return Positioned(
-      bottom: 16, left: 16, right: 16,
+      bottom: 16,
+      left: 16,
+      right: 16,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
@@ -608,14 +906,22 @@ class _QuestScreenState extends State<QuestScreen> {
             GestureDetector(
               onTap: () {
                 // If quest is active, upload AFTER photo. If not, capture BEFORE photo.
-                captureImage(!_questState.isActive); 
+                captureImage(!_questState.isActive);
               },
               child: Transform.translate(
                 offset: const Offset(0, -24),
                 child: Container(
-                   width: 56, height: 56,
-                   decoration: BoxDecoration(color: primaryBlue, shape: BoxShape.circle, border: Border.all(color: bgLight, width: 4), boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)]),
-                   child: const Icon(Icons.add, color: Colors.white, size: 32),
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: primaryBlue,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: bgLight, width: 4),
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black26, blurRadius: 10),
+                    ],
+                  ),
+                  child: const Icon(Icons.add, color: Colors.white, size: 32),
                 ),
               ),
             ),
@@ -631,7 +937,11 @@ class _QuestScreenState extends State<QuestScreen> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, color: isActive ? primaryBlue : Colors.grey.shade400, size: 24),
+        Icon(
+          icon,
+          color: isActive ? primaryBlue : Colors.grey.shade400,
+          size: 24,
+        ),
         const SizedBox(height: 4),
         Text(
           label,

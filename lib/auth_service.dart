@@ -16,10 +16,8 @@ class AuthService {
     required String password,
   }) async {
     try {
-      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      UserCredential userCredential = await _auth
+          .createUserWithEmailAndPassword(email: email, password: password);
 
       User? user = userCredential.user;
       if (user != null) {
@@ -34,6 +32,7 @@ class AuthService {
           'createdAt': FieldValue.serverTimestamp(),
           'exp': 0, // Initial EXP
           'level': 1, // Initial Level
+          'questsCompleted': 0, // Initial Quests Completed
           'friends': [], // Initialize empty friends list
           'pendingRequests': [],
           'sentRequests': [],
@@ -78,7 +77,10 @@ class AuthService {
   Stream<User?> get user => _auth.authStateChanges();
 
   // Send a friend request by username
-  Future<void> sendFriendRequest(String currentUserId, String targetUsername) async {
+  Future<void> sendFriendRequest(
+    String currentUserId,
+    String targetUsername,
+  ) async {
     try {
       final querySnapshot = await _firestore
           .collection('users')
@@ -93,30 +95,29 @@ class AuthService {
       final targetUserId = querySnapshot.docs.first.id;
 
       if (currentUserId == targetUserId) {
-         throw Exception('You cannot add yourself as a friend.');
+        throw Exception('You cannot add yourself as a friend.');
       }
-      
+
       final targetUserData = querySnapshot.docs.first.data();
       List<dynamic> targetFriends = targetUserData['friends'] ?? [];
       List<dynamic> targetPending = targetUserData['pendingRequests'] ?? [];
-      
+
       if (targetFriends.contains(currentUserId)) {
-         throw Exception('You are already friends with $targetUsername.');
+        throw Exception('You are already friends with $targetUsername.');
       }
       if (targetPending.contains(currentUserId)) {
-         throw Exception('You have already sent a request to $targetUsername.');
+        throw Exception('You have already sent a request to $targetUsername.');
       }
 
       // Add currentUserId to target user's pendingRequests
       await _firestore.collection('users').doc(targetUserId).update({
-        'pendingRequests': FieldValue.arrayUnion([currentUserId])
+        'pendingRequests': FieldValue.arrayUnion([currentUserId]),
       });
 
       // Add targetUserId to current user's sentRequests
       await _firestore.collection('users').doc(currentUserId).update({
-        'sentRequests': FieldValue.arrayUnion([targetUserId])
+        'sentRequests': FieldValue.arrayUnion([targetUserId]),
       });
-
     } catch (e) {
       debugPrint('Error sending friend request: $e');
       rethrow;
@@ -129,13 +130,13 @@ class AuthService {
       // 1. Add requester to current user's friends list, remove from pending
       await _firestore.collection('users').doc(currentUserId).update({
         'friends': FieldValue.arrayUnion([requesterId]),
-        'pendingRequests': FieldValue.arrayRemove([requesterId])
+        'pendingRequests': FieldValue.arrayRemove([requesterId]),
       });
 
       // 2. Add current user to requester's friends list, remove from their sent
       await _firestore.collection('users').doc(requesterId).update({
         'friends': FieldValue.arrayUnion([currentUserId]),
-        'sentRequests': FieldValue.arrayRemove([currentUserId])
+        'sentRequests': FieldValue.arrayRemove([currentUserId]),
       });
     } catch (e) {
       debugPrint('Error accepting request: $e');
@@ -148,12 +149,12 @@ class AuthService {
     try {
       // Remove requester from current user's pending
       await _firestore.collection('users').doc(currentUserId).update({
-        'pendingRequests': FieldValue.arrayRemove([requesterId])
+        'pendingRequests': FieldValue.arrayRemove([requesterId]),
       });
 
       // Remove current user from requester's sent
       await _firestore.collection('users').doc(requesterId).update({
-        'sentRequests': FieldValue.arrayRemove([currentUserId])
+        'sentRequests': FieldValue.arrayRemove([currentUserId]),
       });
     } catch (e) {
       debugPrint('Error rejecting request: $e');
