@@ -7,6 +7,7 @@ import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'quest_state.dart';
+import 'level_utils.dart';
 
 const Color primaryBlue = Color(0xFF0d93f2);
 const Color bgLight = Color(0xFFf5f7f8);
@@ -206,7 +207,7 @@ class _QuestScreenState extends State<QuestScreen> {
               if (userSnapshot.exists) {
                 final currentExp = userSnapshot.data()?['exp'] ?? 0;
                 final newExp = currentExp + 50;
-                final newLevel = (newExp ~/ 1000) + 1; // 1000 exp = 1 level
+                final newLevel = LevelUtils.calculateLevel(newExp);
                 transaction.update(userRef, {
                   'exp': newExp,
                   'level': newLevel,

@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'auth_service.dart';
+import 'level_utils.dart';
 import 'friend_profile_screen.dart';
 
 class SocialScreen extends StatefulWidget {
@@ -44,7 +45,7 @@ class _SocialScreenState extends State<SocialScreen> {
         final String currentFirstName = userData['firstName'] ?? 'Player';
         final String currentLastName = userData['lastName'] ?? '';
         final int currentExp = userData['exp'] ?? 0;
-        final int currentLevel = userData['level'] ?? 1;
+        final int currentLevel = LevelUtils.calculateLevel(currentExp);
         
         // Get friends array
         final List<dynamic> rawFriends = userData['friends'] ?? [];
@@ -63,14 +64,12 @@ class _SocialScreenState extends State<SocialScreen> {
               ),
             ),
             
-              // Fixed Header
             Positioned(
               top: 0, left: 0, right: 0,
               child: Container(
                 padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 8, bottom: 16, left: 16, right: 16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.7),
-                  border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.2))),
+                  color: Colors.white.withOpacity(0.0), // Removing the white background to let the pixel art bleed consistently
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -198,11 +197,18 @@ class _SocialScreenState extends State<SocialScreen> {
                     Expanded(
                       child: Container(
                         height: 8,
-                        decoration: BoxDecoration(color: const Color(0xFF25F4AF).withOpacity(0.3), borderRadius: BorderRadius.circular(4)), // primary
-                        child: FractionallySizedBox(
-                          alignment: Alignment.centerLeft,
-                          widthFactor: (exp % 1000) / 1000.0, // Visual progress to next level (assuming 1000xp per level)
-                          child: Container(decoration: BoxDecoration(color: const Color(0xFF25F4AF), borderRadius: BorderRadius.circular(4))),
+                        decoration: BoxDecoration(color: Colors.black.withOpacity(0.1), borderRadius: BorderRadius.circular(4)), // Neutral track
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final double progress = LevelUtils.calculateProgress(exp).clamp(0.0, 1.0);
+                            return Align(
+                              alignment: Alignment.centerLeft,
+                              child: Container(
+                                width: constraints.maxWidth * progress,
+                                decoration: BoxDecoration(color: const Color(0xFF25F4AF), borderRadius: BorderRadius.circular(4)),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ),
@@ -258,6 +264,7 @@ class _SocialScreenState extends State<SocialScreen> {
             return Padding(
               padding: const EdgeInsets.only(bottom: 12.0),
               child: _buildFriendTile(
+                isCurrentUser: uid == _currentUid,
                 rank: index + 1,
                 firstName: data['firstName'] ?? 'Player',
                 lastName: data['lastName'] ?? '',
@@ -275,58 +282,72 @@ class _SocialScreenState extends State<SocialScreen> {
     );
   }
 
-  Widget _buildFriendTile({required int rank, required String firstName, required String lastName, required int exp, required Color bgColor, required IconData icon, required VoidCallback onTap}) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.7), // frosted-glass
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.5)),
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0,2))],
-      ),
-      child: Row(
-        children: [
-          // Rank
-          SizedBox(
-            width: 24,
-            child: Text(
-              '$rank',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-                color: const Color(0xFF0A192F).withOpacity(rank <= 3 ? 1.0 : 0.4),
+  Widget _buildFriendTile({required bool isCurrentUser, required int rank, required String firstName, required String lastName, required int exp, required Color bgColor, required IconData icon, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.7), // frosted-glass
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withOpacity(0.5)),
+          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0,2))],
+        ),
+        child: Row(
+          children: [
+            // Rank
+            SizedBox(
+              width: 24,
+              child: Text(
+                '$rank',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: const Color(0xFF0A192F).withOpacity(rank <= 3 ? 1.0 : 0.4),
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          
-          // Icon Avatar
-          Container(
-            width: 48, height: 48,
-            decoration: BoxDecoration(
-              color: bgColor,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white, width: 2),
+            const SizedBox(width: 8),
+            
+            // Icon Avatar
+            Container(
+              width: 48, height: 48,
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+              child: Icon(icon, color: const Color(0xFF0A192F)),
             ),
-            child: Icon(icon, color: const Color(0xFF0A192F)),
-          ),
-          const SizedBox(width: 16),
-          
-          // Details
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('$firstName $lastName', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF0A192F))),
-                Text('${exp} EXP', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF0A192F).withOpacity(0.5), letterSpacing: 1.0)),
-              ],
+            const SizedBox(width: 16),
+            
+            // Details
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                         child: Text('$firstName $lastName', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF0A192F)), overflow: TextOverflow.ellipsis),
+                      ),
+                      if (isCurrentUser) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(color: const Color(0xFF0A192F), borderRadius: BorderRadius.circular(8)),
+                          child: const Text('YOU', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                        ),
+                      ]
+                    ],
+                  ),
+                  Text('${exp} EXP', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF0A192F).withOpacity(0.5), letterSpacing: 1.0)),
+                ],
+              ),
             ),
-          ),
 
-          // Action Button
-          GestureDetector(
-            onTap: onTap,
-            child: Container(
+            // Action Indicator
+            Container(
               width: 40, height: 40,
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -336,8 +357,8 @@ class _SocialScreenState extends State<SocialScreen> {
               ),
               child: const Icon(Icons.front_hand, size: 20, color: Color(0xFF0A192F)),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -366,40 +387,40 @@ class _SocialScreenState extends State<SocialScreen> {
         }
 
         return GestureDetector(
+          behavior: HitTestBehavior.opaque, // Increase touch area
           onTap: () {
-            if (pendingRequests.isNotEmpty) {
-              _showRequestsModal(context, pendingRequests, uid);
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No new notifications!')));
-            }
+            _showRequestsModal(context, pendingRequests, uid);
           },
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.5),
-                  shape: BoxShape.circle,
+          child: Padding(
+            padding: const EdgeInsets.all(8.0), // Padding to increase touch area
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.5),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.park, color: Color(0xFF0A192F), size: 20),
                 ),
-                child: const Icon(Icons.park, color: Color(0xFF0A192F), size: 20),
-              ),
-              if (hasPending)
-                Positioned(
-                  top: -2,
-                  right: -2,
-                  child: Container(
-                    width: 14,
-                    height: 14,
-                    decoration: BoxDecoration(
-                      color: Colors.redAccent,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
+                if (hasPending)
+                  Positioned(
+                    top: -2,
+                    right: -2,
+                    child: Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -425,7 +446,9 @@ class _SocialScreenState extends State<SocialScreen> {
               const Text('Friend Requests', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFF0A192F))),
               const SizedBox(height: 16),
               Expanded(
-                child: ListView.builder(
+                child: pendingUidList.isEmpty
+                  ? const Center(child: Text("No new notifications!", style: TextStyle(color: Color(0xFF0A192F), fontWeight: FontWeight.bold)))
+                  : ListView.builder(
                   itemCount: pendingUidList.length,
                   itemBuilder: (context, index) {
                     final requesterId = pendingUidList[index] as String;
@@ -622,54 +645,102 @@ class _AddFriendScreenState extends State<AddFriendScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : _searchQuery.isEmpty && _searchResults.isEmpty
                     ? Center(child: Text("Search for an Eco Quest handle\nor sync your contacts.", textAlign: TextAlign.center, style: TextStyle(color: const Color(0xFF0A192F).withOpacity(0.5), fontWeight: FontWeight.bold)))
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _searchResults.length,
-                        itemBuilder: (context, index) {
-                          final data = _searchResults[index].data() as Map<String, dynamic>;
-                          final name = '${data['firstName']} ${data['lastName']}';
-                          final username = '${data['username']}';
-                          final exp = data['exp'] ?? 0;
-
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 12),
+                    : StreamBuilder<DocumentSnapshot>(
+                        stream: FirebaseFirestore.instance.collection('users').doc(_currentUid).snapshots(),
+                        builder: (context, currentUserSnapshot) {
+                          List<dynamic> myFriends = [];
+                          List<dynamic> mySent = [];
+                          List<dynamic> myPending = [];
+                          
+                          if (currentUserSnapshot.hasData && currentUserSnapshot.data!.exists) {
+                            final myData = currentUserSnapshot.data!.data() as Map<String, dynamic>?;
+                            if (myData != null) {
+                              myFriends = myData['friends'] ?? [];
+                              mySent = myData['sentRequests'] ?? [];
+                              myPending = myData['pendingRequests'] ?? [];
+                            }
+                          }
+                          
+                          return ListView.builder(
                             padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 48, height: 48,
-                                  decoration: BoxDecoration(color: const Color(0xFF0077b6).withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-                                  child: const Icon(Icons.person, color: Color(0xFF0077b6)),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                            itemCount: _searchResults.length,
+                            itemBuilder: (context, index) {
+                              final uid = _searchResults[index].id;
+                              final data = _searchResults[index].data() as Map<String, dynamic>;
+                              final name = '${data['firstName']} ${data['lastName']}';
+                              final username = '${data['username']}';
+                              final exp = data['exp'] ?? 0;
+
+                              bool isFriend = myFriends.contains(uid);
+                              bool isPending = mySent.contains(uid) || myPending.contains(uid);
+
+                              Color iconBgColor;
+                              IconData iconToUse;
+                              int colorIdx = exp % 4;
+                              if (colorIdx == 0) { iconBgColor = Colors.orange.shade100; iconToUse = Icons.surfing; }
+                              else if (colorIdx == 1) { iconBgColor = Colors.blue.shade100; iconToUse = Icons.hiking; }
+                              else if (colorIdx == 2) { iconBgColor = const Color(0xFF25F4AF).withOpacity(0.1); iconToUse = Icons.sailing; } 
+                              else { iconBgColor = Colors.yellow.shade100; iconToUse = Icons.kayaking; }
+
+                              return GestureDetector(
+                                onTap: () {
+                                  Navigator.push(context, MaterialPageRoute(builder: (_) => FriendProfileScreen(userId: uid, userData: data)));
+                                },
+                                child: Container(
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                                  ),
+                                  child: Row(
                                     children: [
-                                      Text(name, style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF0A192F), fontSize: 16)),
-                                      Text('@$username • $exp EXP', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF0A192F).withOpacity(0.5))),
+                                      Container(
+                                        width: 48, height: 48,
+                                        decoration: BoxDecoration(color: iconBgColor, borderRadius: BorderRadius.circular(12)),
+                                        child: Icon(iconToUse, color: const Color(0xFF0A192F)),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(name, style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF0A192F), fontSize: 16)),
+                                            Text('@$username • $exp EXP', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF0A192F).withOpacity(0.5))),
+                                          ],
+                                        ),
+                                      ),
+                                      if (isFriend)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          decoration: BoxDecoration(color: const Color(0xFF0A192F).withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                                          child: const Text('FRIENDS', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF0A192F), fontSize: 12)),
+                                        )
+                                      else if (isPending)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          decoration: BoxDecoration(color: Colors.orange.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
+                                          child: const Text('PENDING', style: TextStyle(fontWeight: FontWeight.w900, color: Colors.deepOrange, fontSize: 12)),
+                                        )
+                                      else
+                                        ElevatedButton(
+                                          onPressed: () => _sendRequest(username),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(0xFF25F4AF),
+                                            foregroundColor: const Color(0xFF0A192F),
+                                            elevation: 0,
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                          ),
+                                          child: const Text('ADD', style: TextStyle(fontWeight: FontWeight.w900)),
+                                        ),
                                     ],
                                   ),
                                 ),
-                                ElevatedButton(
-                                  onPressed: () => _sendRequest(username),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF25F4AF),
-                                    foregroundColor: const Color(0xFF0A192F),
-                                    elevation: 0,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                  ),
-                                  child: const Text('ADD', style: TextStyle(fontWeight: FontWeight.w900)),
-                                ),
-                              ],
-                            ),
+                              );
+                            },
                           );
-                        },
+                        }
                       ),
           ),
         ],

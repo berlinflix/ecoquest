@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'level_utils.dart';
 
 class FriendProfileScreen extends StatelessWidget {
   final String userId;
@@ -17,7 +18,7 @@ class FriendProfileScreen extends StatelessWidget {
     final String lastName = userData['lastName'] ?? '';
     final String username = userData['username'] ?? '';
     final int exp = userData['exp'] ?? 0;
-    final int level = userData['level'] ?? 1;
+    final int level = LevelUtils.calculateLevel(exp);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F8F7), // background-light

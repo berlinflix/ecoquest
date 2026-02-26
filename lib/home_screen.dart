@@ -124,25 +124,24 @@ class _HomeScreenState extends State<HomeScreen> {
         }
 
         return GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onTap: () {
-            if (pendingRequests.isNotEmpty) {
-              _showRequestsModal(context, pendingRequests, uid);
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No new notifications!')));
-            }
+            _showRequestsModal(context, pendingRequests, uid);
           },
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: primaryMint.withOpacity(0.1),
-                  shape: BoxShape.circle,
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: primaryMint.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.park, color: navyDeep, size: 20),
                 ),
-                child: const Icon(Icons.park, color: navyDeep, size: 20),
-              ),
               if (hasPending)
                 Positioned(
                   top: -2,
@@ -159,7 +158,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
             ],
           ),
-        );
+        ),
+      );
       },
     );
   }
@@ -183,7 +183,18 @@ class _HomeScreenState extends State<HomeScreen> {
               const Text('Friend Requests', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: navyDeep)),
               const SizedBox(height: 16),
               Expanded(
-                child: ListView.builder(
+                child: pendingUidList.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No new notifications!',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: navyDeep.withOpacity(0.5),
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
                   itemCount: pendingUidList.length,
                   itemBuilder: (context, index) {
                     final requesterId = pendingUidList[index] as String;
@@ -406,7 +417,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   content: Container(
                     height: 8,
                     width: double.infinity,
-                    decoration: BoxDecoration(color: primaryMint.withOpacity(0.2), borderRadius: BorderRadius.circular(4)),
+                    decoration: BoxDecoration(color: Colors.black.withOpacity(0.1), borderRadius: BorderRadius.circular(4)), // Neutral track
                     child: FractionallySizedBox(
                       alignment: Alignment.centerLeft,
                       widthFactor: 0.6,
@@ -547,33 +558,39 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildNavIcon(IconData icon, String label, int index) {
     bool isActive = _currentIndex == index;
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _currentIndex = index;
-        });
-      },
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 40, height: 40,
-            decoration: BoxDecoration(
-              color: isActive ? primaryMint.withOpacity(0.2) : Colors.transparent,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: isActive ? navyDeep : navyDeep.withOpacity(0.4)),
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(
+                  color: isActive ? primaryMint.withOpacity(0.2) : Colors.transparent,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: isActive ? navyDeep : navyDeep.withOpacity(0.4)),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: isActive ? navyDeep : navyDeep.withOpacity(0.4),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            label.toUpperCase(),
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              color: isActive ? navyDeep : navyDeep.withOpacity(0.4),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
