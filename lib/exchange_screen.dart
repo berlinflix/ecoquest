@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -19,34 +20,49 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
   bool _isLoading = true;
   List<dynamic> _myFriends = [];
 
+  StreamSubscription<DocumentSnapshot>? _userSub;
+
   @override
   void initState() {
     super.initState();
-    _fetchFriends();
+    _listenToFriends();
   }
 
-  Future<void> _fetchFriends() async {
+  @override
+  void dispose() {
+    _userSub?.cancel();
+    super.dispose();
+  }
+
+  void _listenToFriends() {
     final uid = _auth.currentUser?.uid;
-    if (uid == null) return;
-    
-    try {
-      final doc = await _firestore.collection('users').doc(uid).get();
-      final data = doc.data();
-      if (data != null) {
-        final List<dynamic> friendIds = data['friends'] ?? [];
-        if (friendIds.isNotEmpty) {
-           _myFriends = friendIds;
-        } else {
-           // Fallback for empty friend list: get some random users for demo purposes
-           final fallbackSnap = await _firestore.collection('users').limit(10).get();
-           _myFriends = fallbackSnap.docs.map((d) => d.id).toList();
-        }
-      }
-    } catch (e) {
-      debugPrint('Error fetching friends: $e');
-    } finally {
+    if (uid == null) {
       if (mounted) setState(() => _isLoading = false);
+      return;
     }
+    
+    _userSub = _firestore.collection('users').doc(uid).snapshots().listen(
+      (doc) {
+        if (!doc.exists) {
+          if (mounted) setState(() => _isLoading = false);
+          return;
+        }
+        final data = doc.data();
+        if (data != null) {
+          final List<dynamic> friendIds = data['friends'] ?? [];
+          if (mounted) {
+            setState(() {
+              _myFriends = friendIds;
+              _isLoading = false;
+            });
+          }
+        }
+      },
+      onError: (e) {
+        debugPrint('Error listening to friends: $e');
+        if (mounted) setState(() => _isLoading = false);
+      },
+    );
   }
 
   void _showPostRequestModal() {

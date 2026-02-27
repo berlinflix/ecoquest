@@ -14,6 +14,8 @@ const Color primaryMint = Color(0xFF25F4AF);
 const Color backgroundLight = Color(0xFFF5F8F7);
 const Color navyDeep = Color(0xFF0A192F);
 const Color shadowMint = Color(0xFF1BA67A);
+const Color secondaryBlue = Color(0xFF2EACDD);
+const Color shadowBlue = Color(0xFF268DAF);
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -373,7 +375,7 @@ class _HomeScreenState extends State<HomeScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
       child: Column(
         children: [
-          // 3D Button
+          // Start IRL Quest Button
           GestureDetector(
             onTap: () {
                Navigator.push(context, MaterialPageRoute(builder: (context) => const QuestScreen()));
@@ -400,6 +402,43 @@ class _HomeScreenState extends State<HomeScreen> {
                     'START IRL QUEST',
                     style: TextStyle(
                       color: navyDeep,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Play Minigame Button
+          GestureDetector(
+            onTap: () {
+               // Placeholder for play minigame
+            },
+            child: Container(
+              width: double.infinity,
+              height: 64,
+              decoration: BoxDecoration(
+                color: secondaryBlue,
+                borderRadius: BorderRadius.circular(32),
+                boxShadow: const [
+                  BoxShadow(
+                    color: shadowBlue,
+                    offset: Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.videogame_asset, color: Colors.white, size: 28),
+                  SizedBox(width: 12),
+                  Text(
+                    'PLAY MINIGAME',
+                    style: TextStyle(
+                      color: Colors.white,
                       fontSize: 18,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 1.5,
