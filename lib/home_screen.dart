@@ -9,6 +9,7 @@ import 'social_screen.dart';
 import 'map_screen.dart';
 import 'squad_hub_screen.dart';
 import 'exchange_screen.dart';
+import 'package:ecoquest/ui/home_screen.dart' as minigame;
 import 'dart:math';
 const Color primaryMint = Color(0xFF25F4AF);
 const Color backgroundLight = Color(0xFFF5F8F7);
@@ -415,7 +416,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // Play Minigame Button
           GestureDetector(
             onTap: () {
-               // Placeholder for play minigame
+               Navigator.push(context, MaterialPageRoute(builder: (context) => const minigame.HomeScreen()));
             },
             child: Container(
               width: double.infinity,
