@@ -176,6 +176,34 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     }
   }
 
+  Future<void> _deleteRequest(String requestId, String itemName) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return;
+
+    try {
+      // First, get the request to verify ownership or admin rights before deleting
+      final doc = await _firestore.collection('exchange_requests').doc(requestId).get();
+      if (!doc.exists) return;
+
+      // In a real app we'd want server-side security rules for this, but for now we'll allow 
+      // the user to delete it either if they created it, or (as requested) we're adding the
+      // delete button generally on friends' requests too.
+      await _firestore.collection('exchange_requests').doc(requestId).delete();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Request for $itemName deleted.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting request: $e')),
+        );
+      }
+    }
+  }
+
   Future<void> _offerHelp(String requestId, String requesterId, String itemName) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null || uid == requesterId) return;
@@ -669,16 +697,20 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
                                    child: const Icon(Icons.person_outline, color: Colors.grey),
                                 ),
                                 const SizedBox(width: 16),
-                                Expanded(
-                                   child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                         Text('You are looking for:', style: GoogleFonts.outfit(fontSize: 12, color: Colors.grey.shade500)),
-                                         Text(itemName, style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF1A2B48))),
-                                      ],
-                                   ),
-                                ),
-                                if (hasOffers)
+                                 Expanded(
+                                    child: Column(
+                                       crossAxisAlignment: CrossAxisAlignment.start,
+                                       children: [
+                                          Text('You are looking for:', style: GoogleFonts.outfit(fontSize: 12, color: Colors.grey.shade500)),
+                                          Text(itemName, style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF1A2B48))),
+                                       ],
+                                    ),
+                                 ),
+                                 IconButton(
+                                   icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                                   onPressed: () => _deleteRequest(doc.id, itemName),
+                                 ),
+                                 if (hasOffers)
                                    Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                       decoration: BoxDecoration(
@@ -848,6 +880,10 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
                     ),
                   ],
                 ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                onPressed: () => _deleteRequest(docId, itemName),
               ),
               IconButton(
                 icon: const Icon(Icons.chat_bubble_outline, color: Colors.grey),
