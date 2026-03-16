@@ -454,18 +454,23 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             children: [
               Expanded(
-                child: _buildStatCard(
-                  icon: Icons.recycling,
-                  title: 'DAILY GOAL',
-                  value: 'Collect 5kg',
-                  content: Container(
-                    height: 8,
-                    width: double.infinity,
-                    decoration: BoxDecoration(color: Colors.black.withOpacity(0.1), borderRadius: BorderRadius.circular(4)), // Neutral track
-                    child: FractionallySizedBox(
-                      alignment: Alignment.centerLeft,
-                      widthFactor: 0.6,
-                      child: Container(decoration: BoxDecoration(color: primaryMint, borderRadius: BorderRadius.circular(4))),
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const QuestScreen()));
+                  },
+                  child: _buildStatCard(
+                    icon: Icons.emoji_events,
+                    title: 'DAILY GOAL',
+                    value: 'Gain 50 EXP',
+                    content: Container(
+                      height: 8,
+                      width: double.infinity,
+                      decoration: BoxDecoration(color: Colors.black.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
+                      child: FractionallySizedBox(
+                        alignment: Alignment.centerLeft,
+                        widthFactor: 0.35,
+                        child: Container(decoration: BoxDecoration(color: primaryMint, borderRadius: BorderRadius.circular(4))),
+                      ),
                     ),
                   ),
                 ),

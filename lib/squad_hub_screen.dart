@@ -159,7 +159,7 @@ class _SquadHubScreenState extends State<SquadHubScreen> {
                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                    return Center(
                      child: Text(
-                       "No Active Squads\\nCreate one or ask a friend!",
+                       "No Active Squads.Create one or ask a friend!",
                        textAlign: TextAlign.center,
                        style: GoogleFonts.plusJakartaSans(color: const Color(0xFF0F172A).withOpacity(0.5), fontWeight: FontWeight.bold),
                      ),

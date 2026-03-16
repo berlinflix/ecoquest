@@ -219,187 +219,219 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
   void _showOfferBottomSheet(List<dynamic> offers) async {
     if (offers.isEmpty) return;
     
-    // For demo purposes, we will just show the first person who offered help
-    final helperId = offers.first;
-    
-    Map<String, dynamic>? helperData;
-    try {
-       final doc = await _firestore.collection('users').doc(helperId).get();
-       helperData = doc.data();
-    } catch (e) {
-       debugPrint('Error loading helper data');
-       return;
+    List<Map<String, dynamic>> helpersData = [];
+    for (var helperId in offers) {
+      try {
+        final doc = await _firestore.collection('users').doc(helperId).get();
+        if (doc.exists && doc.data() != null) {
+          helpersData.add(doc.data()!);
+        }
+      } catch (e) {
+        debugPrint('Error loading helper data: $e');
+      }
     }
 
-    if (helperData == null || !mounted) return;
-
-    final name = '${helperData['firstName'] ?? 'User'} ${helperData['lastName'] ?? ''}'.trim();
-    final photoUrl = helperData['profileImageUrl'];
-    final email = helperData['email'] ?? 'No email provided';
-    final phone = helperData['mobile'] ?? 'No phone provided';
+    if (helpersData.isEmpty || !mounted) return;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(40)),
-            boxShadow: [
-               BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 40, offset: const Offset(0, -10))
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 16),
-              Container(
-                width: 48,
-                height: 6,
-                decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10)),
+        int currentPage = 0;
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.75,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(40)),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 40, offset: const Offset(0, -10))
+                ],
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-                child: Column(
-                  children: [
-                    Text(
-                      '${offers.length} Friend can help!',
-                      style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: const Color(0xFF1A2B48)),
-                    ),
-                    Text(
-                      'Found a match in your circle',
-                      style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey.shade400),
-                    ),
-                    const SizedBox(height: 24),
-                    
-                    // Profile Image
-                    Container(
-                      width: 96, height: 96,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(32),
-                        border: Border.all(color: const Color(0xFF30D5C8).withValues(alpha: 0.1), width: 4),
-                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 20)],
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: photoUrl != null 
-                        ? CachedNetworkImage(imageUrl: photoUrl, fit: BoxFit.cover)
-                        : Container(color: Colors.blueGrey.shade50, child: const Icon(Icons.person, size: 48, color: Colors.blueGrey)),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      name,
-                      style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.bold, color: const Color(0xFF1A2B48)),
-                    ),
-                    Text(
-                      'Active Member',
-                      style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w500, color: const Color(0xFF30D5C8)),
-                    ),
-                    const SizedBox(height: 32),
+              child: Column(
+                children: [
+                   const SizedBox(height: 16),
+                   Container(
+                     width: 48,
+                     height: 6,
+                     decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10)),
+                   ),
+                   const SizedBox(height: 24),
+                   if (helpersData.length > 1)
+                     Row(
+                       mainAxisAlignment: MainAxisAlignment.center,
+                       children: List.generate(helpersData.length, (index) {
+                         return Container(
+                           margin: const EdgeInsets.symmetric(horizontal: 4),
+                           width: 8,
+                           height: 8,
+                           decoration: BoxDecoration(
+                             color: currentPage == index ? const Color(0xFF30D5C8) : Colors.grey.shade300,
+                             shape: BoxShape.circle,
+                           ),
+                         );
+                       }),
+                     ),
+                   Expanded(
+                     child: PageView.builder(
+                       itemCount: helpersData.length,
+                       onPageChanged: (index) {
+                         setModalState(() => currentPage = index);
+                       },
+                       itemBuilder: (context, index) {
+                         final helperData = helpersData[index];
+                         final name = '${helperData['firstName'] ?? 'User'} ${helperData['lastName'] ?? ''}'.trim();
+                         final photoUrl = helperData['profileImageUrl'];
+                         final email = helperData['email'] ?? 'No email provided';
+                         final phone = helperData['mobile'] ?? 'No phone provided';
 
-                    // Contact Cards
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF4F7F8),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: Colors.grey.shade100),
-                      ),
-                      child: Row(
-                        children: [
-                           Container(
-                              width: 40, height: 40,
-                              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)]),
-                              child: const Icon(Icons.mail_outline, color: Color(0xFF30D5C8)),
-                           ),
-                           const SizedBox(width: 16),
-                           Expanded(
-                             child: Column(
-                               crossAxisAlignment: CrossAxisAlignment.start,
-                               children: [
-                                 Text('EMAIL ADDRESS', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade400, letterSpacing: 1.5)),
-                                 Text(email, style: GoogleFonts.outfit(fontWeight: FontWeight.w500, color: const Color(0xFF1A2B48))),
-                               ],
-                             ),
-                           )
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF4F7F8),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: Colors.grey.shade100),
-                      ),
-                      child: Row(
-                        children: [
-                           Container(
-                              width: 40, height: 40,
-                              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)]),
-                              child: const Icon(Icons.phone_outlined, color: Color(0xFF30D5C8)),
-                           ),
-                           const SizedBox(width: 16),
-                           Expanded(
-                             child: Column(
-                               crossAxisAlignment: CrossAxisAlignment.start,
-                               children: [
-                                 Text('PHONE NUMBER', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade400, letterSpacing: 1.5)),
-                                 Text(phone, style: GoogleFonts.outfit(fontWeight: FontWeight.w500, color: const Color(0xFF1A2B48))),
-                               ],
-                             ),
-                           )
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 32),
+                         return SingleChildScrollView(
+                           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+                           child: Column(
+                             children: [
+                               Text(
+                                 '${offers.length} Friend${offers.length > 1 ? 's' : ''} can help!',
+                                 style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: const Color(0xFF1A2B48)),
+                               ),
+                               Text(
+                                 'Found a match in your circle',
+                                 style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey.shade400),
+                               ),
+                               const SizedBox(height: 24),
+                               
+                               // Profile Image
+                               Container(
+                                 width: 96, height: 96,
+                                 decoration: BoxDecoration(
+                                   borderRadius: BorderRadius.circular(32),
+                                   border: Border.all(color: const Color(0xFF30D5C8).withValues(alpha: 0.1), width: 4),
+                                   boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 20)],
+                                 ),
+                                 clipBehavior: Clip.antiAlias,
+                                 child: photoUrl != null 
+                                   ? CachedNetworkImage(imageUrl: photoUrl, fit: BoxFit.cover)
+                                   : Container(color: Colors.blueGrey.shade50, child: const Icon(Icons.person, size: 48, color: Colors.blueGrey)),
+                               ),
+                               const SizedBox(height: 16),
+                               Text(
+                                 name,
+                                 style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.bold, color: const Color(0xFF1A2B48)),
+                               ),
+                               Text(
+                                 'Active Member',
+                                 style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w500, color: const Color(0xFF30D5C8)),
+                               ),
+                               const SizedBox(height: 32),
 
-                    // Action Buttons
-                    Row(
-                      children: [
-                        Expanded(
-                           child: ElevatedButton.icon(
-                              onPressed: () { 
-                                 launchUrl(Uri.parse('tel:$phone'));
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF30D5C8),
-                                foregroundColor: const Color(0xFF1A2B48),
-                                padding: const EdgeInsets.symmetric(vertical: 20),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                                elevation: 8,
-                                shadowColor: const Color(0xFF30D5C8).withValues(alpha: 0.3),
-                              ),
-                              icon: const Icon(Icons.call, size: 20),
-                              label: Text('CALL', style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                               // Contact Cards
+                               Container(
+                                 padding: const EdgeInsets.all(16),
+                                 decoration: BoxDecoration(
+                                   color: const Color(0xFFF4F7F8),
+                                   borderRadius: BorderRadius.circular(24),
+                                   border: Border.all(color: Colors.grey.shade100),
+                                 ),
+                                 child: Row(
+                                   children: [
+                                      Container(
+                                         width: 40, height: 40,
+                                         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)]),
+                                         child: const Icon(Icons.mail_outline, color: Color(0xFF30D5C8)),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text('EMAIL ADDRESS', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade400, letterSpacing: 1.5)),
+                                            Text(email, style: GoogleFonts.outfit(fontWeight: FontWeight.w500, color: const Color(0xFF1A2B48))),
+                                          ],
+                                        ),
+                                      )
+                                   ],
+                                 ),
+                               ),
+                               const SizedBox(height: 16),
+                               Container(
+                                 padding: const EdgeInsets.all(16),
+                                 decoration: BoxDecoration(
+                                   color: const Color(0xFFF4F7F8),
+                                   borderRadius: BorderRadius.circular(24),
+                                   border: Border.all(color: Colors.grey.shade100),
+                                 ),
+                                 child: Row(
+                                   children: [
+                                      Container(
+                                         width: 40, height: 40,
+                                         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)]),
+                                         child: const Icon(Icons.phone_outlined, color: Color(0xFF30D5C8)),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text('PHONE NUMBER', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade400, letterSpacing: 1.5)),
+                                            Text(phone, style: GoogleFonts.outfit(fontWeight: FontWeight.w500, color: const Color(0xFF1A2B48))),
+                                          ],
+                                        ),
+                                      )
+                                   ],
+                                 ),
+                               ),
+                               const SizedBox(height: 32),
+
+                               // Action Buttons
+                               Row(
+                                 children: [
+                                   Expanded(
+                                      child: ElevatedButton.icon(
+                                         onPressed: () { 
+                                            launchUrl(Uri.parse('tel:$phone'));
+                                         },
+                                         style: ElevatedButton.styleFrom(
+                                           backgroundColor: const Color(0xFF30D5C8),
+                                           foregroundColor: const Color(0xFF1A2B48),
+                                           padding: const EdgeInsets.symmetric(vertical: 20),
+                                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                                           elevation: 8,
+                                           shadowColor: const Color(0xFF30D5C8).withValues(alpha: 0.3),
+                                         ),
+                                         icon: const Icon(Icons.call, size: 20),
+                                         label: Text('CALL', style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                                      ),
+                                   ),
+                                   const SizedBox(width: 12),
+                                   Expanded(
+                                      child: OutlinedButton.icon(
+                                         onPressed: () { 
+                                            launchUrl(Uri.parse('mailto:$email'));
+                                         },
+                                         style: OutlinedButton.styleFrom(
+                                           foregroundColor: const Color(0xFF1A2B48),
+                                           padding: const EdgeInsets.symmetric(vertical: 20),
+                                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                                           side: const BorderSide(color: Color(0xFF1A2B48), width: 2),
+                                         ),
+                                         icon: const Icon(Icons.mail, size: 20),
+                                         label: Text('EMAIL', style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                                      ),
+                                   ),
+                                 ],
+                               ),
+                               const SizedBox(height: 24),
+                             ],
                            ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                           child: OutlinedButton.icon(
-                              onPressed: () { 
-                                 launchUrl(Uri.parse('mailto:$email'));
-                              },
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFF1A2B48),
-                                padding: const EdgeInsets.symmetric(vertical: 20),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                                side: const BorderSide(color: Color(0xFF1A2B48), width: 2),
-                              ),
-                              icon: const Icon(Icons.mail, size: 20),
-                              label: Text('EMAIL', style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                  ],
-                ),
+                         );
+                       },
+                     ),
+                   )
+                ],
               ),
-            ],
-          ),
+            );
+          }
         );
       },
     );
@@ -598,6 +630,44 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
     );
   }
 
+  Future<void> _deleteRequest(String docId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete Request', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+        content: Text('Are you sure you want to remove this request?', style: GoogleFonts.outfit()),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancel', style: GoogleFonts.outfit(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Delete', style: GoogleFonts.outfit(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await _firestore.collection('exchange_requests').doc(docId).delete();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Request deleted successfully!')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error deleting request: $e')),
+          );
+        }
+      }
+    }
+  }
+
   Widget _buildMyRequestsFeed(String currentUid) {
      return StreamBuilder<QuerySnapshot>(
         stream: _firestore.collection('exchange_requests')
@@ -695,6 +765,13 @@ class _ExchangeScreenState extends State<ExchangeScreen> {
                                          ],
                                       ),
                                    ),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                   icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                                   onPressed: () => _deleteRequest(doc.id),
+                                   constraints: const BoxConstraints(),
+                                   padding: EdgeInsets.zero,
+                                ),
                              ],
                           ),
                           const SizedBox(height: 16),

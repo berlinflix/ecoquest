@@ -233,10 +233,18 @@ class _QuestScreenState extends State<QuestScreen> {
       final afterBytes = await _questState.afterImage!.readAsBytes();
 
       final prompt = TextPart(
-        'Analyze these two images. The first image is the "before" state of an area, and the second image is the "after" state. '
-        'Verify if the trash in the "before" image was cleaned up in the "after" image. '
-        'You must output strictly either "1" (yes, it is clean) or "0" (no, it is not clean). Do not output any other text.',
-      );
+  'You are a strict environmental compliance AI. Analyze these two images ("Before" and "After"). '
+  'Your job is to verify if a genuine outdoor environmental cleanup occurred. '
+  'RULES FOR APPROVAL: '
+  '1. The "Before" image MUST clearly show environmental litter, pollution, or illegal dumping in a public or outdoor space (e.g., plastic waste on a beach, garbage on a street, litter in a park/forest). '
+  '2. The "After" image MUST show the EXACT same location with that specific litter removed. '
+  'STRICT EXCLUSIONS (MUST FAIL): '
+  '1. Indoor household chores are strictly INVALID (e.g., tidying a bedroom, making a bed, washing dishes, cleaning a toilet, organizing a desk). '
+  '2. Standard landscaping without litter removal is INVALID (e.g., just mowing a lawn or sweeping leaves). '
+  'If it is a valid environmental cleanup, output strictly "1". '
+  'If it violates ANY rule, is an indoor chore, or the area is not clean, output strictly "0". '
+  'Do not output any other text, spaces, or markdown.'
+);
 
       final imageParts = [
         DataPart('image/jpeg', beforeBytes),

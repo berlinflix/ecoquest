@@ -1,8 +1,9 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:countries_world_map/countries_world_map.dart';
-import 'package:countries_world_map/data/maps/world_map.dart';
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class InteractivePollutionMap extends StatefulWidget {
   const InteractivePollutionMap({super.key});
@@ -12,399 +13,366 @@ class InteractivePollutionMap extends StatefulWidget {
 }
 
 class _InteractivePollutionMapState extends State<InteractivePollutionMap> {
-  final Map<String, int> wasteData = {
-    'AL': 37, 'DZ': 74, 'AO': 2, 'AI': 2, 'AG': 1, 'AR': 102, 'AU': 16,
-    'AZ': 11, 'BD': 23, 'BB': 1, 'BZ': 4, 'BJ': 2, 'BO': 7, 'BW': 1,
-    'BR': 158, 'BN': 4, 'KH': 37, 'CM': 4, 'KY': 1, 'TD': 1, 'CL': 1,
-    'CN': 415, 'CO': 14, 'CR': 3, 'HR': 20, 'CU': 14, 'CY': 2, 'CI': 8,
-    'CD': 1, 'DJ': 2, 'DM': 1, 'DO': 64, 'EC': 14, 'EG': 19, 'SV': 11,
-    'ET': 2, 'FR': 13, 'GA': 2, 'DE': 33, 'GH': 66, 'GR': 20, 'GD': 1,
-    'GT': 53, 'GN': 1, 'GY': 3, 'HT': 8, 'HN': 57, 'IN': 690, 'ID': 373,
-    'IR': 8, 'IQ': 1, 'IL': 3, 'IT': 11, 'JM': 8, 'JP': 58, 'JO': 1,
-    'KE': 15, 'LA': 17, 'LR': 1, 'MK': 5, 'MY': 103, 'ML': 7, 'MX': 221,
-    'ME': 1, 'MA': 54, 'MZ': 2, 'MM': 49, 'NR': 1, 'NP': 5, 'NC': 1,
-    'NZ': 1, 'NI': 48, 'NG': 116, 'PA': 28, 'PG': 2, 'PY': 2, 'PE': 23,
-    'PH': 190, 'PT': 11, 'PR': 2, 'CG': 1, 'KR': 4, 'LC': 1, 'VC': 3,
-    'SA': 2, 'SN': 1, 'SL': 1, 'SG': 4, 'SO': 1, 'ZA': 26, 'ES': 18,
-    'LK': 28, 'SD': 2, 'SR': 1, 'SY': 1, 'TW': 46, 'TZ': 10, 'TH': 158,
-    'TL': 1, 'TG': 7, 'TT': 4, 'TN': 3, 'TR': 73, 'UG': 1, 'US': 71,
-    'VI': 1, 'UY': 16, 'VU': 1, 'VE': 50, 'VN': 198, 'YE': 7, 'ZW': 2
-  };
+  MapboxMap? mapboxMap;
+  bool _isLoading = true;
+  String? _errorMessage;
+  String? _gpwApiKey;
+  String? _mapboxApiKey;
 
-  final Color bgColor = const Color(0xFFE5D9C5);
-  final Color primaryBlue = const Color(0xFF38BDF8);
-  final Color mapBgColor = const Color(0xFFC4B69D);
+  @override
+  void initState() {
+    super.initState();
+    _fetchApiKeys();
+  }
 
-  Map<String, Color> _generateMapColors() {
-    Map<String, Color> colors = {};
-    wasteData.forEach((countryCode, siteCount) {
-      Color c = mapBgColor;
-      if (siteCount >= 200) {
-        c = Colors.red.shade500;
-      } else if (siteCount >= 50) {
-        c = Colors.orange.shade500;
-      } else if (siteCount > 0) {
-        c = Colors.yellow.shade500;
+  Future<void> _fetchApiKeys() async {
+    try {
+      final configDoc = await FirebaseFirestore.instance
+          .collection('config')
+          .doc('api_keys')
+          .get();
+
+      if (configDoc.exists) {
+        final apiKey = configDoc.data()?['maps_api_key'] as String?;
+        final gpwKey = configDoc.data()?['gpw_api_key'] as String?;
+
+        if (apiKey != null && apiKey.isNotEmpty && gpwKey != null && gpwKey.isNotEmpty) {
+          final trimmedKey = apiKey.trim();
+          print('Loaded token length: ${trimmedKey.length}, starts with: ${trimmedKey.substring(0, 3)}');
+          
+          MapboxOptions.setAccessToken(trimmedKey);
+
+          setState(() {
+            _mapboxApiKey = trimmedKey;
+            _gpwApiKey = gpwKey.trim();
+            _isLoading = false;
+          });
+        } else {
+          setState(() {
+            _errorMessage = 'One or both API Keys are empty in Firestore.';
+            _isLoading = false;
+          });
+        }
+      } else {
+        setState(() {
+          _errorMessage = 'Mapbox API Key document not found in Firestore.';
+          _isLoading = false;
+        });
       }
-      colors[countryCode.toLowerCase()] = c;
-      colors[countryCode.toUpperCase()] = c;
-    });
-    return colors;
-  }
-
-  String _getFlagEmoji(String countryCode) {
-    if (countryCode.length != 2) return "🗺️";
-    int offset = 127397;
-    int firstChar = countryCode.codeUnitAt(0) + offset;
-    int secondChar = countryCode.codeUnitAt(1) + offset;
-    return String.fromCharCode(firstChar) + String.fromCharCode(secondChar);
-  }
-
-  void _showCountryDetails(BuildContext context, String id, String name) {
-    String upperId = id.toUpperCase();
-    int count = wasteData.containsKey(upperId) ? wasteData[upperId]! : 0;
-    
-    String threatLevel = "LOW";
-    Color threatColor = Colors.amber.shade600;
-    Color threatBg = Colors.amber.shade50.withValues(alpha: 0.5);
-    Color threatBorder = Colors.amber.shade200.withValues(alpha: 0.5);
-    IconData threatIcon = Icons.info_outline;
-
-    if (count >= 200) {
-      threatLevel = "CRITICAL";
-      threatColor = Colors.red.shade600;
-      threatBg = Colors.red.shade50.withValues(alpha: 0.5);
-      threatBorder = Colors.red.shade200.withValues(alpha: 0.5);
-      threatIcon = Icons.warning_rounded;
-    } else if (count >= 50) {
-      threatLevel = "ELEVATED";
-      threatColor = Colors.orange.shade600;
-      threatBg = Colors.orange.shade50.withValues(alpha: 0.5);
-      threatBorder = Colors.orange.shade200.withValues(alpha: 0.5);
-      threatIcon = Icons.warning_rounded;
-    } else if (count > 0) {
-      threatLevel = "STABLE";
-      threatColor = Colors.yellow.shade700;
-      threatBg = Colors.yellow.shade50.withValues(alpha: 0.5);
-      threatBorder = Colors.yellow.shade200.withValues(alpha: 0.5);
-      threatIcon = Icons.info_outline;
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Error fetching API key: $e';
+        _isLoading = false;
+      });
     }
+  }
 
+  void _showSiteDetails(Map<String, dynamic> props) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
+      backgroundColor: const Color(0xFF1E1E1E),
       isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) {
+        final entries = props.entries.toList();
         return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.88),
-            borderRadius: BorderRadius.circular(32),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 24,
-                spreadRadius: 0,
-              )
-            ]
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.5,
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(32),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Top drag handle
-                    Container(
-                      width: 48,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: Colors.blueGrey.shade200,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    // Header Area
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Text(
-                          _getFlagEmoji(upperId),
-                          style: const TextStyle(fontSize: 36),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Text(
-                            name,
-                            style: GoogleFonts.outfit(
-                              fontSize: 26,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.blueGrey.shade900,
-                              height: 1.1,
-                            ),
-                          ),
-                        ),
-                        Container(
-                          width: 32, height: 32,
-                          decoration: BoxDecoration(
-                            color: Colors.blueGrey.shade50,
-                            shape: BoxShape.circle,
-                          ),
-                          child: IconButton(
-                            onPressed: () => Navigator.pop(context),
-                            icon: Icon(Icons.close, color: Colors.blueGrey.shade400, size: 16),
-                            padding: EdgeInsets.zero,
-                          ),
-                        )
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    // Stat Cards
-                    Row(
-                      children: [
-                        // Left Card
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.shade50.withValues(alpha: 0.5),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: Colors.blue.shade200.withValues(alpha: 0.5)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "WASTE SITES",
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w800,
-                                    color: Colors.blue.shade500,
-                                    letterSpacing: 1.5,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  count.toString(),
-                                  style: GoogleFonts.pressStart2p(
-                                    fontSize: 24,
-                                    color: Colors.blue.shade600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        // Right Card
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: threatBg,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: threatBorder),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "SECTOR THREAT",
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w800,
-                                    color: Colors.amber.shade500,
-                                    letterSpacing: 1.5,
-                                  ),
-                                ),
-                                const SizedBox(height: 14),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        threatLevel,
-                                        style: GoogleFonts.outfit(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w900,
-                                          color: threatColor,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Icon(
-                                      threatIcon,
-                                      color: threatColor,
-                                      size: 14,
-                                    )
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.white30,
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
-            ),
+              const SizedBox(height: 16),
+              Text(
+                props['name']?.toString() ?? props['location']?.toString() ?? 'Waste Site Details',
+                style: GoogleFonts.outfit(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+                  itemCount: entries.length,
+                  itemBuilder: (context, index) {
+                    final e = entries[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${e.key}',
+                            style: GoogleFonts.outfit(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${e.value}',
+                            style: GoogleFonts.outfit(color: Colors.white, fontSize: 16),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
         );
-      }
+      },
     );
+  }
+
+  void _onMapTap(MapContentGestureContext context) async {
+    if (mapboxMap == null) return;
+
+    try {
+      final features = await mapboxMap!.queryRenderedFeatures(
+        RenderedQueryGeometry.fromScreenBox(
+          ScreenBox(
+            min: ScreenCoordinate(
+              x: context.touchPosition.x - 30, // Padding for taps
+              y: context.touchPosition.y - 30,
+            ),
+            max: ScreenCoordinate(
+              x: context.touchPosition.x + 30,
+              y: context.touchPosition.y + 30,
+            ),
+          )
+        ),
+        RenderedQueryOptions(
+          layerIds: ['plastic-sites-layer-unclustered-inner', 'plastic-sites-layer-unclustered-outer'],
+          filter: null,
+        ),
+      );
+
+      if (features.isNotEmpty) {
+        final feature = features.first;
+        if (feature != null && feature.queriedFeature.feature.containsKey('properties')) {
+          final props = feature.queriedFeature.feature['properties'] as Map<dynamic, dynamic>?;
+          if (props != null) {
+            _showSiteDetails(props.cast<String, dynamic>());
+          }
+        }
+      }
+    } catch (e) {
+      print("Error handling map tap: $e");
+    }
+  }
+
+  Future<void> _fetchAndPlotPlasticData() async {
+    if (mapboxMap == null || _gpwApiKey == null || _gpwApiKey!.isEmpty) {
+      print("Cannot fetch GPW data: Missing API key or map is null.");
+      return;
+    }
+
+    try {
+      final response = await http.get(Uri.parse('https://api.globalplasticwatch.org/sites?apikey=$_gpwApiKey&limit=10000'));
+      
+      if (response.statusCode == 200) {
+        final geoJsonData = response.body;
+
+        try {
+          // Add the GeoJson source with clustering enabled
+          await mapboxMap!.style.addSource(GeoJsonSource(
+            id: 'gpw-data',
+            data: geoJsonData,
+            cluster: true,
+            clusterRadius: 50.0,
+            clusterMaxZoom: 14.0,
+          ));
+
+          // Layer A: Cluster Circles
+          await mapboxMap!.style.addLayer(CircleLayer(
+            id: 'plastic-sites-layer-clustered',
+            sourceId: 'gpw-data',
+            circleColor: const Color(0xFFFFCC00).value,
+            circleRadius: 18.0,
+            circleOpacity: 0.7,
+            circleStrokeWidth: 1.0,
+            circleStrokeColor: Colors.black.value,
+            filter: ['has', 'point_count'],
+          ));
+          
+          // Layer B: Cluster Text
+          await mapboxMap!.style.addLayer(SymbolLayer(
+            id: 'plastic-sites-layer-count',
+            sourceId: 'gpw-data',
+            textField: '{point_count}',
+            textSize: 12.0,
+            textColor: Colors.black.value,
+            textAllowOverlap: true,
+            filter: ['has', 'point_count'],
+          ));
+
+          // Layer C: Unclustered Outer Ring
+          await mapboxMap!.style.addLayer(CircleLayer(
+            id: 'plastic-sites-layer-unclustered-outer',
+            sourceId: 'gpw-data',
+            circleColor: Colors.transparent.value,
+            circleRadius: 8.0,
+            circleStrokeWidth: 2.0,
+            circleStrokeColor: const Color(0xFFFFCC00).value,
+            circleStrokeOpacity: 0.8,
+            filter: ['!', ['has', 'point_count']],
+          ));
+
+          // Layer D: Unclustered Inner Dot
+          await mapboxMap!.style.addLayer(CircleLayer(
+            id: 'plastic-sites-layer-unclustered-inner',
+            sourceId: 'gpw-data',
+            circleColor: const Color(0xFFFFCC00).value,
+            circleRadius: 3.0,
+            circleOpacity: 1.0,
+            circleStrokeWidth: 0.0,
+            filter: ['!', ['has', 'point_count']],
+          ));
+          
+          print("GPW data loaded and plotted successfully.");
+        } catch (layerError) {
+          print("Error adding GeoJSON source or layer: $layerError");
+        }
+      } else {
+        print("Failed to load GPW data: ${response.statusCode}");
+        print("Response body: ${response.body}");
+      }
+    } catch (e) {
+      print("Error fetching GPW data: $e");
+    }
+  }
+
+  void _onMapCreated(MapboxMap mapboxMap) {
+    this.mapboxMap = mapboxMap;
+    
+    // Fix Mapbox built-in UI elements getting clipped by placing them normally now that we don't extend behind the appbar
+    mapboxMap.compass.updateSettings(CompassSettings(marginTop: 16.0, marginRight: 16.0));
+    mapboxMap.scaleBar.updateSettings(ScaleBarSettings(marginTop: 16.0, marginLeft: 16.0));
+    mapboxMap.logo.updateSettings(LogoSettings(marginBottom: 16.0, marginLeft: 16.0));
+    mapboxMap.attribution.updateSettings(AttributionSettings(marginBottom: 16.0, marginRight: 16.0));
+
+    // Enable the location component to show the user's location puck
+    mapboxMap.location.updateSettings(
+      LocationComponentSettings(
+        enabled: true,
+        puckBearingEnabled: true,
+        showAccuracyRing: true,
+      ),
+    );
+  }
+
+  void _onStyleLoaded(StyleLoadedEventData data) async {
+    try {
+      await mapboxMap?.style.setProjection(StyleProjection(name: StyleProjectionName.globe));
+    } catch(e) {
+      print("Error setting projection: $e");
+    }
+    _fetchAndPlotPlasticData();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: bgColor,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Top Header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.4),
-                border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.2))),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    width: 40, height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        )
-                      ]
-                    ),
-                    child: IconButton(
-                      icon: Icon(Icons.arrow_back, color: Colors.blueGrey.shade700),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ),
-                  Column(
-                    children: [
-                      Text(
-                        "WASTE WATCHER",
-                        style: GoogleFonts.pressStart2p(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: -0.5,
-                          color: Colors.blueGrey.shade800,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "SATELLITE DATA",
-                        style: GoogleFonts.outfit(
-                          fontSize: 8,
-                          fontWeight: FontWeight.bold,
-                          color: primaryBlue,
-                          letterSpacing: 1.0,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Container(
-                    width: 40, height: 40,
-                    decoration: BoxDecoration(
-                      color: primaryBlue,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: primaryBlue.withValues(alpha: 0.3),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        )
-                      ]
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.radar, color: Colors.white, size: 20),
-                      onPressed: () {},
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            // Status Bar
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-              decoration: BoxDecoration(
-                color: primaryBlue.withValues(alpha: 0.9),
-                border: Border.symmetric(horizontal: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    "LINK: STABLE",
-                    style: GoogleFonts.pressStart2p(
-                      fontSize: 7,
-                      color: Colors.white,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      Text(
-                        "415",
-                        style: GoogleFonts.outfit(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        "SITES",
-                        style: GoogleFonts.outfit(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white.withValues(alpha: 0.9),
-                          letterSpacing: 1.5,
-                        ),
-                      ),
-                    ],
-                  )
-                ],
-              ),
-            ),
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF1E1E1E), // sleek dark theme background
+        body: const Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF38BDF8)),
+          ),
+        ),
+      );
+    }
 
-            // Map Area
-            Expanded(
-              child: InteractiveViewer(
-                minScale: 1.0, 
-                maxScale: 5.0,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: SimpleMap(
-                    instructions: SMapWorld.instructions,
-                    defaultColor: mapBgColor,
-                    colors: _generateMapColors(),
-                    callback: (id, name, tapDetails) {
-                      _showCountryDetails(context, id, name);
-                    },
+    if (_errorMessage != null) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF1E1E1E),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Text(
+              _errorMessage!,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                color: Colors.redAccent,
+                fontSize: 16,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      extendBodyBehindAppBar: false,
+      appBar: AppBar(
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'GLOBAL ',
+                    style: GoogleFonts.anton(
+                      color: Colors.white,
+                      fontSize: 26,
+                      letterSpacing: 1.2,
+                    ),
                   ),
-                ),
+                  TextSpan(
+                    text: 'PLASTIC',
+                    style: GoogleFonts.anton(
+                      color: const Color(0xFFFFCC00),
+                      fontSize: 26,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              'WASTE SITES',
+              style: GoogleFonts.bebasNeue(
+                color: Colors.white,
+                fontSize: 18,
+                letterSpacing: 2.0,
               ),
             ),
           ],
         ),
+        centerTitle: true,
+        backgroundColor: const Color(0xFF1E1E1E), // Solid dark background for Appbar
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
+      body: MapWidget(
+          key: const ValueKey("mapWidget"),
+          cameraOptions: CameraOptions(
+            zoom: 1.0,
+            center: Point(coordinates: Position(78.96, 20.59)),
+          ),
+          onMapCreated: _onMapCreated,
+          onStyleLoadedListener: _onStyleLoaded,
+          onMapLoadErrorListener: (data) {
+            print("Map Load Error: ${data.message}");
+          },
+          onTapListener: _onMapTap,
+          styleUri: MapboxStyles.DARK, // sleek modern UI matching GPW
+        ),
     );
   }
 }
